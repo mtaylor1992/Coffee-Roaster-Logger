@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee Roaster Logger</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Chart.js CDN (Version 4.4.0) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Chart.js Annotation Plugin CDN (Version 2.1.0) -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+    
+    <!-- Chart.js Data Labels Plugin CDN (Version 2.0.0) -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    
+    <!-- Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <!-- Firebase Configuration -->
+    <script src="firebase/firebase-config.js"></script>
+    <!-- Main Script -->
+    <script src="script.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Input Row -->
+        <div class="input-row">
+            <label for="date">Date:</label>
+            <input type="date" id="date">
+
+            <label for="beanType">Bean Type:</label>
+            <input type="text" id="beanType" placeholder="e.g., Arabica">
+
+            <label for="startWeight">Start Weight (g):</label>
+            <input type="number" id="startWeight" placeholder="e.g., 500">
+
+            <label for="endWeight">End Weight (g):</label>
+            <input type="number" id="endWeight" placeholder="e.g., 450">
+        </div>
+
+        <!-- Buttons and Timer Row -->
+        <div class="button-timer-row">
+            <!-- Buttons -->
+            <div class="buttons">
+                <button id="startRoast">Start Roast</button>
+                <button id="resetRoast">Reset</button>
+                <button class="power-btn" data-level="P5">P5</button>
+                <button class="power-btn" data-level="P4">P4</button>
+                <button class="power-btn" data-level="P3">P3</button>
+                <button class="power-btn" data-level="P2">P2</button>
+                <button class="power-btn" data-level="P1">P1</button>
+                <button id="toggleDrumSpeed">Toggle Drum Speed</button>
+                <button class="milestone-btn" data-event="Dry End">Dry End</button>
+                <button class="milestone-btn" data-event="First Crack">First Crack</button>
+                <button class="milestone-btn" data-event="Drop">Drop</button>
+            </div>
+            <!-- Timer -->
+            <div class="timer">
+                <span id="timer">00:00</span>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Left Two-Thirds: Graph and Pie Chart with Drop Times -->
+            <div class="left-section">
+                <!-- Combined Temperature and Power Graph -->
+                <canvas id="temperatureChart" class="chart"></canvas>
+
+                <!-- Pie Chart and Target Drop Times -->
+                <div class="pie-drop-section">
+                    <!-- Pie Chart -->
+                    <canvas id="pieChart" class="chart"></canvas>
+
+                    <!-- Target Drop Times -->
+                    <div class="target-drop-times">
+                        <h3>Target Drop Times:</h3>
+                        <ul id="dropTimesList">
+                            <li>15% → --:--</li>
+                            <li>17.5% → --:--</li>
+                            <li>20% → --:--</li>
+                            <li>22.5% → --:--</li>
+                            <li>25% → --:--</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Third: Data Table -->
+            <div class="right-section">
+                <div class="table-section">
+                    <h3>Roast Log</h3>
+                    <table id="roastTable">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Sensor B</th>
+                                <th>Sensor A</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dynamic Rows Here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
