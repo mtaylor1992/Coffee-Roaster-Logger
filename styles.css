@@ -30,7 +30,7 @@ label {
 
 .input-row {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 15px;
     margin-bottom: 20px;
 }
@@ -43,6 +43,7 @@ label {
 .input-row input {
     padding: 5px;
     flex: 1 1 150px;
+    white-space: nowrap;
 }
 
 .button-timer-row {
@@ -95,6 +96,17 @@ label {
 
 .toggleDrumSpeed:hover {
     background-color: #e68a00;
+}
+
+#manualModeCheckbox {
+    accent-color: #2196F3; /* Changes check color in modern browsers */
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+  
+#manualModeCheckbox:checked {
+    /* Additional styles when checked, if needed */
 }
 
 .timer span {
