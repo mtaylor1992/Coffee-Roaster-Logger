@@ -33,6 +33,9 @@ const powerMap = { P5: 100, P4: 75, P3: 50, P2: 25, P1: 0 };
 // Power Points Array
 let powerPoints = []; // Array of {x: time in minutes, y: power level}
 
+// Flag to prevent duplicate milestone processing
+let isProcessingMilestone = false;
+
 // ========== ON LOAD ==========
 document.addEventListener("DOMContentLoaded", () => {
   // Register plugins if they exist
@@ -65,6 +68,12 @@ function initializeCharts() {
 function initializeTemperatureChart() {
   const canvas = document.getElementById("temperatureChart");
   if (!canvas) return;
+
+  // Get the computed font size of the table title
+  const tableTitle = document.querySelector(".table-section h3");
+  const computedStyle = window.getComputedStyle(tableTitle);
+  const fontSizeEm = parseFloat(computedStyle.fontSize) / parseFloat(getComputedStyle(document.body).fontSize);
+  const fontSizePx = 16 * fontSizeEm; // Assuming 1em = 16px
 
   temperatureChart = new Chart(canvas.getContext("2d"), {
     type: "line",
@@ -103,7 +112,15 @@ function initializeTemperatureChart() {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false }, // Removed the legend
-        title: { display: true, text: "" },
+        title: { 
+          display: true, 
+          text: "",
+          color: "black",
+          font: {
+            size: fontSizePx, // Adjust the size as needed
+            weight: 'bold' // Optional: Make the title bold
+          }
+        },
         annotation: {
           annotations: {}
         },
@@ -178,7 +195,7 @@ function initializePieChart() {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false }, // Removed the legend
-        title: { display: true, text: "Roast Phases" },
+        title: { display: true, text: "Roast Phases" , color: "black"},
         datalabels: {
           // Updated formatter to show labels only for active slices
           formatter: (value, ctx) => {
@@ -216,26 +233,35 @@ function setupEventListeners() {
     resetBtn.addEventListener("click", resetRoastAll);
   }
 
-  // Power buttons in normal mode
-  document.querySelectorAll(".power-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (!manualMode) changePowerLevel(btn.getAttribute("data-level"));
-    });
-  });
-
-  // Toggle drum speed in normal mode
-  const drumBtn = document.getElementById("toggleDrumSpeed");
-  if (drumBtn) {
-    drumBtn.addEventListener("click", () => {
-      if (!manualMode) toggleDrumSpeed();
-    });
+  // Debounce function to prevent rapid multiple clicks
+  function debounce(func, delay) {
+    let debounceTimer;
+    return function(...args) {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => func.apply(this, args), delay);
+    }
   }
 
-  // Milestone buttons in normal mode
+  // Power buttons in normal mode with debounced event handler
+  document.querySelectorAll(".power-btn").forEach(btn => {
+    btn.addEventListener("click", debounce(() => {
+      if (!manualMode) changePowerLevel(btn.getAttribute("data-level"));
+    }, 300)); // 300ms delay
+  });
+
+  // Toggle drum speed in normal mode with debounced event handler
+  const drumBtn = document.getElementById("toggleDrumSpeed");
+  if (drumBtn) {
+    drumBtn.addEventListener("click", debounce(() => {
+      if (!manualMode) toggleDrumSpeed();
+    }, 300)); // 300ms delay
+  }
+
+  // Milestone buttons in normal mode with debounced event handler
   document.querySelectorAll(".milestone-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", debounce(() => {
       if (!manualMode) milestoneEvent(btn.getAttribute("data-event"));
-    });
+    }, 300)); // 300ms delay
   });
 
   const roastTable = document.getElementById("roastTable");
@@ -695,6 +721,15 @@ function toggleDrumSpeed() {
 }
 
 function milestoneEvent(name) {
+  // Prevent duplicate processing
+  if (isProcessingMilestone) {
+    console.warn(`Already processing a milestone. Skipping: ${name}`);
+    return;
+  }
+  isProcessingMilestone = true;
+
+  console.log(`milestoneEvent called with: ${name}`);
+
   const timeStr = getCurrentTimeString();
 
   // Omit "at" if !manualMode
@@ -723,9 +758,14 @@ function milestoneEvent(name) {
     logEvent("Roast Dropped");
   }
   updatePieChart();
+
+  console.log(`Milestone ${name} added at ${xVal} minutes.`);
+
+  // Reset the flag after processing
+  isProcessingMilestone = false;
 }
 
-// ========== LOGGING ==========
+//========== LOGGING ==========
 function logEvent(desc) {
   // Example Firestore logging if needed
   db.collection("roastEvents").add({
@@ -1009,11 +1049,13 @@ function addMilestoneAnnotation(name, xVal) {
   const noteSec = Math.round(xVal * 60);
   const annID = makeAnnID(name, noteSec);
 
-  // Remove existing annotation if it exists to prevent duplicates
+  // Check if the annotation already exists
   if (temperatureChart.options.plugins.annotation.annotations[annID]) {
-    delete temperatureChart.options.plugins.annotation.annotations[annID];
+    console.warn(`Annotation ${annID} already exists. Skipping addition.`);
+    return;
   }
 
+  // Add the annotation
   temperatureChart.options.plugins.annotation.annotations[annID] = {
     type: "line",
     xMin: xVal,
@@ -1032,7 +1074,11 @@ function addMilestoneAnnotation(name, xVal) {
       yAdjust: -10
     }
   };
+
+  // Update the chart once after adding
   temperatureChart.update();
+
+  console.log(`Adding milestone annotation: ${name} at ${xVal} minutes`);
 }
 
 function updatePieChart() {
