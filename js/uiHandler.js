@@ -3,7 +3,7 @@
 import { formatTimeString, convertTimeStringToSeconds, pad } from './utils.js';
 import { saveTableData, loadTableData } from './dataHandler.js';
 import { temperatureChart, pieChart, powerMap, powerPoints, targetDropPercentages, targetDropTimes } from './chartHandler.js';
-import { db } from '../firebase-config.js';
+import { db } from '../firebase/firebase-config.js';
 
 /** 
  * Sets up all UI event listeners.

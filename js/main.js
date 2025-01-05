@@ -1,6 +1,6 @@
 // main.js
 
-import { initializeFirebase } from '../firebase-config.js';
+import { initializeFirebase } from '../firebase/firebase-config.js';
 import { initializeCharts } from './chartHandler.js';
 import { setupEventListeners } from './uiHandler.js';
 import { initializeTimer } from './timer.js';
