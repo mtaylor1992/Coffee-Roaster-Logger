@@ -8,22 +8,22 @@
     <link rel="stylesheet" href="styles.css">
     
     <!-- Chart.js CDN (Version 4.4.0) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
     
     <!-- Chart.js Annotation Plugin CDN (Version 2.1.0) -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js" defer></script>
 
     <!-- Chart.js Data Labels Plugin CDN (Version 2.0.0) -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js" defer></script>
     
     <!-- Firebase CDN -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js" defer></script>
 
     <!-- Firebase Configuration -->
-    <script src="firebase/firebase-config.js"></script>
+    <script type="module" src="./firebase/firebase-config.js"></script>
     <!-- Main Script -->
-    <script src="script.js"></script>
+    <script type="module" src="./js/main.js"></script>
 </head>
 <body>
     <div class="container">
@@ -62,6 +62,8 @@
                 <button class="milestone-btn" data-event="First Crack">First Crack</button>
                 <button class="milestone-btn" data-event="Drop">Drop</button>
                 <input type="checkbox" id="manualModeCheckbox">Manual entry
+                <button id="saveButton">Save Data</button>
+                <button id="loadButton">Load Data</button>
 
             </div>
             <!-- Timer -->
