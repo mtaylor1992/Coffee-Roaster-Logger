@@ -4,6 +4,8 @@ import { formatTimeString, convertTimeStringToSeconds, pad } from './utils.js';
 import { saveTableData, loadTableData } from './dataHandler.js';
 import { temperatureChart, pieChart, powerMap, powerPoints, targetDropPercentages, targetDropTimes } from './chartHandler.js';
 import { db } from '../firebase/firebase-config.js';
+import { resetRoastAll } from './timer.js';
+import { autoAddChargeIfTyped } from './timer.js';
 
 /** 
  * Sets up all UI event listeners.
@@ -198,5 +200,3 @@ function appendNoteToLastRow(timeStr, note) {
     // Rebuild powerPoints after appending a note
     rebuildPowerPoints();
 }
-
-// Add other necessary UI functions similarly...

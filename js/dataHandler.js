@@ -1,7 +1,9 @@
 // dataHandler.js
 
+import { collection, getDocs, query, orderBy, limit, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 import { db } from '../firebase/firebase-config.js';
-import { addDataToTable, rebuildPowerPoints } from './uiHandler.js';
+import { addDataToTable } from './uiHandler.js';
+import { rebuildPowerPoints } from './timer.js';
 
 /**
  * Saves the current table data to Firebase Firestore.
@@ -23,14 +25,15 @@ export function saveTableData() {
     }
 
     // Save to Firestore
-    db.collection("roastTableData").add({
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        data: tableData
+    const roastTableRef = collection(db, "roastTableData");
+    addDoc(roastTableRef, {
+        timestamp: new Date(),
+        data: tableData,
     })
-    .then(() => {
-        alert("Table data saved successfully!");
-    })
-    .catch(err => console.error("Error saving table data:", err));
+        .then(() => {
+            alert("Table data saved successfully!");
+        })
+        .catch(err => console.error("Error saving table data:", err));
 }
 
 /**
@@ -38,10 +41,10 @@ export function saveTableData() {
  */
 export async function loadTableData() {
     try {
-        const snapshot = await db.collection("roastTableData")
-                                 .orderBy("timestamp", "desc")
-                                 .limit(1)
-                                 .get();
+        const roastTableRef = collection(db, "roastTableData");
+        const q = query(roastTableRef, orderBy("timestamp", "desc"), limit(1));
+        const snapshot = await getDocs(q);
+
         if (snapshot.empty) {
             console.log("No saved table data found.");
             return;
@@ -58,9 +61,6 @@ export async function loadTableData() {
         tableData.forEach(rowData => {
             addDataToTableFromLoad(rowData);
         });
-
-        // Rebuild power points and charts based on loaded data
-        rebuildPowerPoints();
 
         alert("Table data loaded successfully!");
     } catch (error) {
@@ -97,6 +97,14 @@ function convertTimeStringToSeconds(str) {
     return parts[0] * 60 + parts[1];
 }
 
+export function logEvent(desc) {
+    // Example Firestore logging if needed
+    db.collection("roastEvents").add({
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      event: desc
+    }).catch(err => console.error("Error logging event:", err));
+}
+
 /**
  * Logs data to Firestore (existing functionality).
  * @param {number} timeSec - Time in seconds.
@@ -122,6 +130,23 @@ export function logData(timeSec, sensorB, sensorA, notes, addToTable = true) {
             addOrReplaceChartData(timeSec, sensorB, sensorA);
         })
         .catch(err => console.error("Error logging data:", err));
+}
+
+export function promptSensorData(totalSec) {
+    if (!running) return;
+    const timeStr = formatTimeString(totalSec);
+    const bVal = prompt(`Enter Sensor B temp at ${timeStr}:`, "");
+    if (bVal === null) return;
+    const aVal = prompt(`Enter Sensor A temp at ${timeStr}:`, "");
+    if (aVal === null) return;
+  
+    const bNum = parseFloat(bVal);
+    const aNum = parseFloat(aVal);
+    if (isNaN(bNum) || isNaN(aNum)) {
+      alert("Invalid input. Numbers only.");
+      return;
+    }
+    logData(totalSec, bNum, aNum, "");
 }
 
 /**

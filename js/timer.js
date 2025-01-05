@@ -1,8 +1,10 @@
 // timer.js
 
 import { formatTimeString, convertTimeStringToSeconds } from './utils.js';
-import { logEvent, promptSensorData, addDataToTable } from './dataHandler.js';
-import { temperatureChart, pieChart, powerMap, powerPoints, updatePowerDataset, sortAllDatasets, updatePieChart, updateChartTitle, resetRoastAll } from './chartHandler.js';
+import { logEvent, promptSensorData } from './dataHandler.js';
+import { addDataToTable } from './uiHandler.js';
+import { temperatureChart, pieChart, powerMap, powerPoints, updatePowerDataset, sortAllDatasets, updatePieChart, updateChartTitle,
+        dryEndTime, firstCrackTime, dropTime} from './chartHandler.js';
 
 /**
  * Timer Variables

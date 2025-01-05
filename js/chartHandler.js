@@ -385,6 +385,24 @@ export function resetDropTimesUI() {
     `;
 }
 
+export function updateChartTitle() {
+    const bean = (document.getElementById("beanType")?.value || "").trim() || "No Bean";
+    const startW = (document.getElementById("startWeight")?.value || "").trim() || "??";
+    let dateVal = (document.getElementById("date")?.value || "").trim() || "No Date";
+  
+    const parts = dateVal.split("-");
+    if (parts.length === 3) {
+      const yyyy = parts[0].slice(-2);
+      const mm = parts[1];
+      const dd = parts[2];
+      dateVal = `${mm}/${dd}/${yyyy}`;
+    }
+  
+    temperatureChart.options.plugins.title.text =
+      `${bean}, ${startW}g, ${dateVal}`;
+    temperatureChart.update();
+}
+
 /**
  * Finds the maximum time in seconds from manual entries.
  * @returns {number} - Maximum time in seconds.
