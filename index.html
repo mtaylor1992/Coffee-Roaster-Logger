@@ -62,7 +62,8 @@
                 <button class="milestone-btn" data-event="First Crack">First Crack</button>
                 <button class="milestone-btn" data-event="Drop">Drop</button>
                 <input type="checkbox" id="manualModeCheckbox">Manual entry
-
+                <button id="saveRoastBtn">Save</button>
+                <button id="loadRoastBtn">Load</button>
             </div>
             <!-- Timer -->
             <div class="timer">
@@ -115,6 +116,35 @@
                     </table>
                 </div>
             </div>
+        </div>
+    </div>
+    <!-- SAVE POPUP -->
+    <div id="savePopup" class="popup-overlay" style="display: none;">
+        <div class="popup-content">
+        <h2>Save Roast</h2>
+        <label for="saveRoastName">Roast Name:</label>
+        <input type="text" id="saveRoastName" />
+        <div class="popup-buttons">
+            <button id="cancelSaveBtn">Cancel</button>
+            <button id="confirmSaveBtn">Save</button>
+        </div>
+        <div id="saveStatus" class="status-message"></div>
+        </div>
+    </div>
+    
+    <!-- LOAD POPUP -->
+    <div id="loadPopup" class="popup-overlay" style="display: none;">
+        <div class="popup-content">
+        <h2>Load Roast</h2>
+        <label for="roastListSelect">Select a Saved Roast:</label>
+        <select id="roastListSelect">
+            <!-- Options will be populated dynamically -->
+        </select>
+        <div class="popup-buttons">
+            <button id="cancelLoadBtn">Cancel</button>
+            <button id="confirmLoadBtn">Load</button>
+        </div>
+        <div id="loadStatus" class="status-message"></div>
         </div>
     </div>
 </body>

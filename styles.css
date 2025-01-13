@@ -105,6 +105,44 @@ label {
     cursor: pointer;
 }
 
+/* Popup Overlay */
+.popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.4); /* semi-transparent background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999; /* On top of everything */
+}
+  
+/* Popup Content Box */
+.popup-content {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    width: 300px; /* or whatever width you prefer */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    position: relative;
+}
+  
+/* Buttons in popup */
+.popup-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 15px;
+}
+  
+.status-message {
+    margin-top: 10px;
+    font-weight: bold;
+    color: green; /* or style to indicate status */
+}  
+
 .timer span {
     font-size: 4em; /* 4x bigger */
     display: block;

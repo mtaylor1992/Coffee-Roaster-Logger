@@ -319,6 +319,38 @@ function setupEventListeners() {
       }
     });
   }
+
+  // ADDED SAVE/LOAD FEATURES
+  // NEW: Save/Load button event listeners
+  const saveBtn = document.getElementById("saveRoastBtn");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", showSavePopup);
+  }
+
+  const loadBtn = document.getElementById("loadRoastBtn");
+  if (loadBtn) {
+    loadBtn.addEventListener("click", showLoadPopup);
+  }
+
+  // NEW: Inside the save popup
+  const cancelSaveBtn = document.getElementById("cancelSaveBtn");
+  if (cancelSaveBtn) {
+    cancelSaveBtn.addEventListener("click", hideSavePopup);
+  }
+  const confirmSaveBtn = document.getElementById("confirmSaveBtn");
+  if (confirmSaveBtn) {
+    confirmSaveBtn.addEventListener("click", doSaveRoast);
+  }
+
+  // NEW: Inside the load popup
+  const cancelLoadBtn = document.getElementById("cancelLoadBtn");
+  if (cancelLoadBtn) {
+    cancelLoadBtn.addEventListener("click", hideLoadPopup);
+  }
+  const confirmLoadBtn = document.getElementById("confirmLoadBtn");
+  if (confirmLoadBtn) {
+    confirmLoadBtn.addEventListener("click", handleLoadSelection);
+  }
 }
 
 /** If user typed charge temp but never pressed Enter, do it automatically **/
@@ -366,7 +398,10 @@ function setOrUpdateChargeRow(tempVal) {
 /** ========== MANUAL MODE ========== **/
 function enableManualMode() {
   document.querySelectorAll(".buttons button").forEach((btn) => {
-    if (btn.id !== "resetRoast") btn.disabled = true;
+    // Keep Reset and Save enabled
+    if (btn.id !== "resetRoast" && btn.id !== "saveRoastBtn") {
+      btn.disabled = true;
+    }
   });
 
   running = false;
@@ -1541,4 +1576,242 @@ function parseMilestones(note) {
   }
 
   return milestones;
+}
+
+
+//ADDED SAVE/LOAD FEATURES
+
+function showSavePopup() {
+  // Pre-fill the roast name with: BeanType + StartWeight + date + time
+  const bean = (document.getElementById("beanType")?.value || "").trim() || "UnknownBean";
+  const startW = (document.getElementById("startWeight")?.value || "").trim() || "??g";
+  
+  // The date field might be "yyyy-mm-dd", convert to "m/d/yy"
+  let dateVal = (document.getElementById("date")?.value || "").trim() || "";
+  let dateStr = "NoDate";
+  if (dateVal) {
+    const parts = dateVal.split("-");
+    if (parts.length === 3) {
+      const yyyy = parts[0].slice(-2);
+      const mm = parts[1];
+      const dd = parts[2];
+      dateStr = `${mm}/${dd}/${yyyy}`;
+    }
+  }
+
+  // 24-hour format time HH:MM
+  const now = new Date();
+  const hh = now.getHours().toString().padStart(2, "0");
+  const min = now.getMinutes().toString().padStart(2, "0");
+  const timeStr = `${hh}:${min}`;
+
+  const defaultName = `${bean} ${startW} ${dateStr} ${timeStr}`;
+
+  document.getElementById("saveRoastName").value = defaultName;
+  document.getElementById("saveStatus").innerText = "";
+
+  document.getElementById("savePopup").style.display = "flex";
+}
+
+function hideSavePopup() {
+  document.getElementById("savePopup").style.display = "none";
+}
+
+async function doSaveRoast() {
+  const roastName = document.getElementById("saveRoastName").value.trim();
+  const statusEl = document.getElementById("saveStatus");
+
+  if (!roastName) {
+    statusEl.innerText = "Roast name cannot be empty.";
+    statusEl.style.color = "red";
+    return;
+  }
+
+  // Gather data from the DOM
+  const beanType = document.getElementById("beanType").value.trim();
+  const startWeight = document.getElementById("startWeight").value.trim();
+  const endWeight = document.getElementById("endWeight").value.trim();
+  const dateValue = document.getElementById("date").value.trim();
+  const chargeTemp = document.getElementById("chargeTemp").value.trim();
+
+  // Gather table data
+  const tableRows = [];
+  const tbody = document.querySelector("#roastTable tbody");
+  if (tbody) {
+    for (let i = 0; i < tbody.rows.length; i++) {
+      const row = tbody.rows[i];
+
+      // If manual mode and this is the last row, check if we should skip it
+      if (manualMode && i === (tbody.rows.length - 1)) {
+        // Grab B and A cells
+        const bValRaw = row.cells[1].innerText.trim();
+        const aValRaw = row.cells[2].innerText.trim();
+
+        // See if both are blank or invalid
+        const bNum = parseFloat(bValRaw);
+        const aNum = parseFloat(aValRaw);
+
+        // If neither B nor A is a valid temperature, skip this row
+        if (!bValRaw && !aValRaw) {
+          console.log("Skipping last blank row in manual mode");
+          continue; // Do not push this row
+        }
+      }
+
+      // Otherwise, proceed as normal
+      const timeCell = row.cells[0].innerText;
+      const sensorBCell = row.cells[1].innerText;
+      const sensorACell = row.cells[2].innerText;
+      const notesCell = row.cells[3]?.innerText || "";
+
+      tableRows.push({
+        time: timeCell,
+        sensorB: sensorBCell,
+        sensorA: sensorACell,
+        notes: notesCell,
+        datasetTimeSec: parseInt(row.dataset.timeSec || 0, 10)
+      });
+    }
+  }
+
+  let finalSec = dropTime;
+  pushOrReplacePowerPoint(finalSec / 60, currentPower);
+  const finalPower = currentPower;
+
+  const roastData = {
+    beanType,
+    startWeight,
+    endWeight,
+    dateValue,
+    chargeTemp,
+    tableRows,
+    finalTimeSec: finalSec,     // New
+    finalPower: finalPower,     // New
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try {
+    // Instead of "01/12/25 16:35", do something like "01-12-25 16:35"
+    // or "01_12_25 16:35"
+    const cleanedName = roastName.replace(/\//g, "-"); 
+    await db.collection("roasts").doc(cleanedName).set(roastData);
+    statusEl.style.color = "green";
+    statusEl.innerText = "Saved successfully!";
+  } catch (err) {
+    console.error("Save error:", err);
+    statusEl.style.color = "red";
+    statusEl.innerText = "Save failed.";
+  }
+}
+
+async function showLoadPopup() {
+  document.getElementById("loadStatus").innerText = "";
+  document.getElementById("loadPopup").style.display = "flex";
+
+  const selectEl = document.getElementById("roastListSelect");
+  selectEl.innerHTML = ""; // Clear old options
+
+  try {
+    const snapshot = await db.collection("roasts").orderBy("timestamp", "desc").get();
+    if (!snapshot.empty) {
+      snapshot.forEach(doc => {
+        const opt = document.createElement("option");
+        opt.value = doc.id;
+        opt.textContent = doc.id; 
+        selectEl.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No saved roasts found";
+      selectEl.appendChild(opt);
+    }
+  } catch (err) {
+    console.error("Error loading roasts:", err);
+  }
+}
+
+function hideLoadPopup() {
+  document.getElementById("loadPopup").style.display = "none";
+}
+
+async function handleLoadSelection() {
+  const selectEl = document.getElementById("roastListSelect");
+  const roastName = selectEl.value;
+
+  if (!roastName) {
+    document.getElementById("loadStatus").innerText = "Please select a valid roast.";
+    return;
+  }
+
+  try {
+    const docRef = db.collection("roasts").doc(roastName);
+    const docSnap = await docRef.get();
+
+    if (!docSnap.exists) {
+      document.getElementById("loadStatus").innerText = "Roast not found in DB.";
+      return;
+    }
+
+    const data = docSnap.data();
+    hideLoadPopup();
+
+    // Clear current UI
+    resetRoastAll(); // or resetRoast(); then also clear the date, bean, etc. yourself.
+
+    // Populate fields
+    document.getElementById("beanType").value = data.beanType || "";
+    document.getElementById("startWeight").value = data.startWeight || "";
+    document.getElementById("endWeight").value = data.endWeight || "";
+    document.getElementById("date").value = data.dateValue || "";
+    document.getElementById("chargeTemp").value = data.chargeTemp || "";
+
+    // Re-create table rows
+    const tbody = document.querySelector("#roastTable tbody");
+    if (tbody) {
+      tbody.innerHTML = "";
+
+      (data.tableRows || []).forEach(rowObj => {
+        const newRow = tbody.insertRow(tbody.rows.length);
+        newRow.dataset.timeSec = rowObj.datasetTimeSec || 0;
+        newRow.dataset.oldNote = rowObj.notes || "";
+
+        // The table has 4 columns: time, B, A, notes
+        newRow.insertCell(0).innerText = rowObj.time;
+        newRow.insertCell(1).innerText = rowObj.sensorB;
+        newRow.insertCell(2).innerText = rowObj.sensorA;
+        newRow.insertCell(3).innerText = rowObj.notes;
+
+        // INSERT temperatures into chart
+      const timeSec = rowObj.datasetTimeSec || 0;
+      const bVal = parseFloat(rowObj.sensorB) || 0;
+      const aVal = parseFloat(rowObj.sensorA) || 0;
+      addOrReplaceChartData(timeSec, bVal, aVal);
+      });
+    }
+
+    // Finally, call your existing rebuild logic
+    // This will parse notes, restore milestones, power, etc.
+    rebuildPowerPoints(); 
+    rebuildAnnotations();
+    // If the doc has a finalTimeSec and finalPower, add that point behind the scenes
+    if (data.finalTimeSec !== undefined && data.finalPower !== undefined) {
+      pushOrReplacePowerPoint(data.finalTimeSec / 60, data.finalPower);
+      updatePowerDataset();     // re-render power line
+      temperatureChart.update();
+    }
+    updatePieChart();
+    updateChartTitle();
+
+    // Display that final time on the timer
+    document.getElementById("timer").innerText = formatTimeString(dropTime);
+
+    // If you want the loaded roast's total time to show:
+    //  - You can find the max datasetTimeSec among the table rows and display it
+    //    or do nothing if you want to remain consistent that it's a "view only."
+
+  } catch (err) {
+    console.error("Load error:", err);
+    document.getElementById("loadStatus").innerText = "Failed to load roast data.";
+  }
 }
