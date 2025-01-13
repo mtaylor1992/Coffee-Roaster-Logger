@@ -113,14 +113,14 @@ function initializeTemperatureChart() {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false }, // Removed the legend
+        legend: { display: false },
         title: {
           display: true,
           text: "",
           color: "black",
           font: {
-            size: fontSizePx, // Adjust the size as needed
-            weight: "bold" // Optional: Make the title bold
+            size: fontSizePx,
+            weight: "bold"
           }
         },
         annotation: {
@@ -671,6 +671,7 @@ function startRoast() {
 
   promptSensorData(0);
   updateChartTitle();
+  updatePhaseBackground();
 }
 
 function updateTimer() {
@@ -687,7 +688,7 @@ function updateTimer() {
     pushOrReplacePowerPoint(xVal, currentPower);
     updatePowerDataset();
     sortAllDatasets();
-
+    updatePhaseBackground();
     promptSensorData(totalSec);
   }
 
@@ -736,6 +737,7 @@ function resetRoastAll() {
   document.getElementById("beanType").value = "";
   document.getElementById("startWeight").value = "";
   document.getElementById("endWeight").value = "";
+  document.getElementById("chargeTemp").value = "";
   const manualBox = document.getElementById("manualModeCheckbox");
   if (manualBox) manualBox.checked = false;
 }
@@ -782,14 +784,16 @@ function milestoneEvent(name) {
     if (name.toLowerCase().includes("dry")) {
       dryEndTime = elapsedTime / 1000;
       addMilestoneAnnotation("Dry End", xVal);
+      updatePhaseBackground();
     } else if (name.toLowerCase().includes("first")) {
       firstCrackTime = elapsedTime / 1000;
       addMilestoneAnnotation("First Crack", xVal);
+      updatePhaseBackground();
       computeTargetDropTimes();
     } else if (name.toLowerCase().includes("drop")) {
       dropTime = elapsedTime / 1000;
       addMilestoneAnnotation("Drop", xVal);
-
+      updatePhaseBackground();
       running = false;
       clearInterval(timerInterval);
     }
@@ -804,18 +808,6 @@ function milestoneEvent(name) {
 }
 
 //========== LOGGING ==========
-/*
-function logEvent(desc) {
-  // Example Firestore logging if needed
-  db.collection("roastEvents")
-    .add({
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-      event: desc
-    })
-    .catch((err) => console.error("Error logging event:", err));
-}
-*/
-
 function logData(timeSec, sensorB, sensorA, notes, addToTable = true) {
   const payload = {
     time: timeSec,
@@ -970,6 +962,7 @@ function saveEdit(row, cellIndex, newVal) {
 
     // Parse and execute the synthetic note
     parseAndExecuteNoteWithRemoval(row);
+    updatePhaseBackground();
   }
 
   updatePieChart();
@@ -1021,6 +1014,7 @@ function removeOldMilestoneLines(oldNote) {
 function removeOneMilestoneAnnotation(eventName, noteSec) {
   const annID = makeAnnID(eventName, noteSec);
   delete temperatureChart.options.plugins.annotation.annotations[annID];
+  updatePhaseBackground();
   temperatureChart.update();
 }
 
@@ -1143,7 +1137,7 @@ function applyNoteAction(action, noteSec) {
 }
 
 function addMilestoneAnnotation(name, xVal) {
-  const noteSec = Math.round(xVal * 60);
+  const noteSec = xVal * 60;
   const annID = makeAnnID(name, noteSec);
 
   // Check if the annotation already exists
@@ -1163,7 +1157,7 @@ function addMilestoneAnnotation(name, xVal) {
   const hasCloseAnnotation = existingAnnotations.some((annotation) => {
     if (annotation.label.content !== name) return false;
     const existingXVal = annotation.xMin; // xMin is in minutes
-    const existingSec = Math.round(existingXVal * 60);
+    const existingSec = existingXVal * 60;
     return Math.abs(existingSec - noteSec) <= TOLERANCE_SEC;
   });
 
@@ -1179,22 +1173,82 @@ function addMilestoneAnnotation(name, xVal) {
     type: "line",
     xMin: xVal,
     xMax: xVal,
-    borderColor: "gray",
+    borderColor: "black",
     borderWidth: 2,
-    borderDash: [5, 5],
+    borderDash: [10, 10],
     label: {
       display: true,
       content: name,
       position: "start",
       xAdjust: -30,
-      backgroundColor: "rgba(0,0,0,0.7)",
+      backgroundColor: "rgba(0,0,0,1)",
       color: "white",
       font: { size: 12 },
-      yAdjust: -10
+      yAdjust: -50
     }
   };
 
   // Update the chart once after adding
+  updatePhaseBackground();
+  temperatureChart.update();
+}
+
+function updatePhaseBackground() {
+  if (!temperatureChart) return;
+
+  const annots = temperatureChart.options.plugins.annotation.annotations;
+
+  // Remove old phase boxes if they exist
+  delete annots["dryPhase"];
+  delete annots["browningPhase"];
+  delete annots["developmentPhase"];
+
+  // Convert times to minutes
+  const dryEndMin = dryEndTime ? dryEndTime / 60 : null;
+  const firstCrackMin = firstCrackTime ? firstCrackTime / 60 : null;
+  const dropMin = dropTime ? dropTime / 60 : null;
+
+  // DRY PHASE: 0 to Dry End
+  // Only add if we have a dryEndTime
+  //if (dryEndMin && dryEndMin > 0) {
+    annots["dryPhase"] = {
+      type: "box",
+      xMin: 0,
+      xMax: dryEndMin,
+      yMin: 0,
+      yMax: "100%", // or a large number, e.g. 9999
+      backgroundColor: "rgba(255, 224, 128, 0.5)", // #ffe080 w/ alpha
+      borderWidth: 0
+    };
+  //}
+
+  // BROWNING PHASE: Dry End to First Crack
+  if (dryEndMin) {
+    annots["browningPhase"] = {
+      type: "box",
+      xMin: dryEndMin,
+      xMax: firstCrackMin,
+      yMin: 0,
+      yMax: "100%",
+      backgroundColor: "rgba(255, 176, 96, 0.5)", // #ffb060 w/ alpha
+      borderWidth: 0
+    };
+  }
+
+  // DEVELOPMENT PHASE: First Crack to Drop
+  if (firstCrackMin) {
+    annots["developmentPhase"] = {
+      type: "box",
+      xMin: firstCrackMin,
+      xMax: dropMin,
+      yMin: 0,
+      yMax: "100%",
+      backgroundColor: "rgba(255, 128, 96, 0.5)", // #ff8060 w/ alpha
+      borderWidth: 0
+    };
+  }
+
+  // Finally, update the chart to apply new boxes
   temperatureChart.update();
 }
 
@@ -1227,6 +1281,7 @@ function updatePieChart() {
   ];
   pieChart.update();
 
+  updatePhaseBackground();
   displayTargetDropTimes();
 }
 
@@ -1450,6 +1505,7 @@ function rebuildAnnotations() {
     parseAndExecuteNote(note, tSec);
   }
 
+  updatePhaseBackground();
   temperatureChart.update();
 }
 
@@ -1605,7 +1661,7 @@ function showSavePopup() {
   const min = now.getMinutes().toString().padStart(2, "0");
   const timeStr = `${hh}:${min}`;
 
-  const defaultName = `${bean} ${startW} ${dateStr} ${timeStr}`;
+  const defaultName = `${bean} ${startW}g ${dateStr} ${timeStr}`;
 
   document.getElementById("saveRoastName").value = defaultName;
   document.getElementById("saveStatus").innerText = "";
@@ -1691,8 +1747,7 @@ async function doSaveRoast() {
   };
 
   try {
-    // Instead of "01/12/25 16:35", do something like "01-12-25 16:35"
-    // or "01_12_25 16:35"
+    // Instead of "01/12/25 16:35", change to "01-12-25 16:35"
     const cleanedName = roastName.replace(/\//g, "-"); 
     await db.collection("roasts").doc(cleanedName).set(roastData);
     statusEl.style.color = "green";

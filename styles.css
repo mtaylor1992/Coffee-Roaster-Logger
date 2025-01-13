@@ -9,14 +9,14 @@ body {
 }
 
 .container {
-    max-width: 1400px;
+    max-width: 100vw;
     margin: auto;
-    background: #fff;
+    background: #ffffff;
     padding: 20px;
     border-radius: 5px;
     box-sizing: border-box;
-    height: 100vh;
-    display: flex;
+    height: 100dvh;
+    display:flex;
     flex-direction: column;
 }
 
@@ -160,8 +160,6 @@ label {
     display: grid;
     grid-template-rows: 3fr 2fr; /* Adjusted ratio for better space distribution */
     grid-gap: 20px;
-    
-    
 }
 
 .pie-drop-section {
