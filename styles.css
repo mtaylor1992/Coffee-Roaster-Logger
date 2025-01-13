@@ -104,10 +104,6 @@ label {
     height: 20px;
     cursor: pointer;
 }
-  
-#manualModeCheckbox:checked {
-    /* Additional styles when checked, if needed */
-}
 
 .timer span {
     font-size: 4em; /* 4x bigger */

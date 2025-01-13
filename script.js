@@ -12,7 +12,7 @@ let manualRowTimeSec = 0;
 
 // Normal Mode
 let currentPower = "P5"; // Default power level
-let drumSpeed = "Low";   
+let drumSpeed = "Low";
 
 // Milestones
 let dryEndTime = null;
@@ -72,7 +72,9 @@ function initializeTemperatureChart() {
   // Get the computed font size of the table title
   const tableTitle = document.querySelector(".table-section h3");
   const computedStyle = window.getComputedStyle(tableTitle);
-  const fontSizeEm = parseFloat(computedStyle.fontSize) / parseFloat(getComputedStyle(document.body).fontSize);
+  const fontSizeEm =
+    parseFloat(computedStyle.fontSize) /
+    parseFloat(getComputedStyle(document.body).fontSize);
   const fontSizePx = 16 * fontSizeEm; // Assuming 1em = 16px
 
   temperatureChart = new Chart(canvas.getContext("2d"), {
@@ -112,13 +114,13 @@ function initializeTemperatureChart() {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false }, // Removed the legend
-        title: { 
-          display: true, 
+        title: {
+          display: true,
           text: "",
           color: "black",
           font: {
             size: fontSizePx, // Adjust the size as needed
-            weight: 'bold' // Optional: Make the title bold
+            weight: "bold" // Optional: Make the title bold
           }
         },
         annotation: {
@@ -155,12 +157,18 @@ function initializeTemperatureChart() {
             stepSize: 25,
             callback: (val) => {
               switch (val) {
-                case 100: return "P5";
-                case 75:  return "P4";
-                case 50:  return "P3";
-                case 25:  return "P2";
-                case 0:   return "P1";
-                default:  return "";
+                case 100:
+                  return "P5";
+                case 75:
+                  return "P4";
+                case 50:
+                  return "P3";
+                case 25:
+                  return "P2";
+                case 0:
+                  return "P1";
+                default:
+                  return "";
               }
             }
           }
@@ -169,7 +177,7 @@ function initializeTemperatureChart() {
       // Add or modify the animation settings here
       animation: {
         duration: 0, // Disables animations
-        easing: 'linear' // Optional: makes updates smoother if animations are enabled
+        easing: "linear" // Optional: makes updates smoother if animations are enabled
       }
     }
   });
@@ -195,11 +203,14 @@ function initializePieChart() {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false }, // Removed the legend
-        title: { display: true, text: "Roast Phases" , color: "black"},
+        title: { display: true, text: "Roast Phases", color: "black" },
         datalabels: {
           // Updated formatter to show labels only for active slices
           formatter: (value, ctx) => {
-            const total = ctx.chart.data.datasets[ctx.datasetIndex].data.reduce((a, b) => a + b, 0);
+            const total = ctx.chart.data.datasets[ctx.datasetIndex].data.reduce(
+              (a, b) => a + b,
+              0
+            );
             if (total === 0 || value === 0) return ""; // Hide label if slice is inactive
             let pct = ((value / total) * 100).toFixed(1) + "%";
             const label = ctx.chart.data.labels[ctx.dataIndex] || "";
@@ -207,7 +218,7 @@ function initializePieChart() {
             // Return multi-line string without HTML tags
             return `${label}\n${timeStr}\n${pct}`;
           },
-          font: { size: 12, weight: 'bold' }, // Set font weight to bold
+          font: { size: 12, weight: "bold" }, // Set font weight to bold
           color: "black",
           align: "center",
           anchor: "center"
@@ -236,32 +247,41 @@ function setupEventListeners() {
   // Debounce function to prevent rapid multiple clicks
   function debounce(func, delay) {
     let debounceTimer;
-    return function(...args) {
+    return function (...args) {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => func.apply(this, args), delay);
-    }
+    };
   }
 
   // Power buttons in normal mode with debounced event handler
-  document.querySelectorAll(".power-btn").forEach(btn => {
-    btn.addEventListener("click", debounce(() => {
-      if (!manualMode) changePowerLevel(btn.getAttribute("data-level"));
-    }, 300)); // 300ms delay
+  document.querySelectorAll(".power-btn").forEach((btn) => {
+    btn.addEventListener(
+      "click",
+      debounce(() => {
+        if (!manualMode) changePowerLevel(btn.getAttribute("data-level"));
+      }, 300)
+    ); // 300ms delay
   });
 
   // Toggle drum speed in normal mode with debounced event handler
   const drumBtn = document.getElementById("toggleDrumSpeed");
   if (drumBtn) {
-    drumBtn.addEventListener("click", debounce(() => {
-      if (!manualMode) toggleDrumSpeed();
-    }, 300)); // 300ms delay
+    drumBtn.addEventListener(
+      "click",
+      debounce(() => {
+        if (!manualMode) toggleDrumSpeed();
+      }, 300)
+    );
   }
 
   // Milestone buttons in normal mode with debounced event handler
-  document.querySelectorAll(".milestone-btn").forEach(btn => {
-    btn.addEventListener("click", debounce(() => {
-      if (!manualMode) milestoneEvent(btn.getAttribute("data-event"));
-    }, 300)); // 300ms delay
+  document.querySelectorAll(".milestone-btn").forEach((btn) => {
+    btn.addEventListener(
+      "click",
+      debounce(() => {
+        if (!manualMode) milestoneEvent(btn.getAttribute("data-event"));
+      }, 300)
+    );
   });
 
   const roastTable = document.getElementById("roastTable");
@@ -343,20 +363,24 @@ function setOrUpdateChargeRow(tempVal) {
   toggleDeleteButtons();
 }
 
-/** ========== MANUAL MODE ==========
-    (No changes needed here; ensure rebuildPowerPoints is called after adding manual rows)
-**/
+/** ========== MANUAL MODE ========== **/
 function enableManualMode() {
-  document.querySelectorAll(".buttons button").forEach(btn => {
+  document.querySelectorAll(".buttons button").forEach((btn) => {
     if (btn.id !== "resetRoast") btn.disabled = true;
   });
 
-  running = false;   
+  running = false;
   elapsedTime = 0;
   manualMode = true;
-  manualRowTimeSec = 0;  
+  manualRowTimeSec = 0;
 
-  addManualRow(); 
+  // Initialize powerPoints with default P5 starting at 0:00
+  powerPoints = [];
+  pushOrReplacePowerPoint(0, "P5");
+  updatePowerDataset();
+  temperatureChart.update(); // Ensure the chart reflects the change
+
+  addManualRow();
   updateChartTitle();
 }
 
@@ -373,7 +397,7 @@ function addManualRow() {
     }
   }
   if (!foundNormalRow) {
-    manualRowTimeSec = 0; 
+    manualRowTimeSec = 0;
   } else {
     manualRowTimeSec = Math.max(0, lastSec) + 30;
   }
@@ -410,8 +434,6 @@ function addManualRow() {
       } else if (cIndex === 3) {
         updateRowSensors(row);
         parseAndExecuteNoteWithRemoval(row);
-        maybeAddPowerPoint(row);
-
         if (tbody.rows[tbody.rows.length - 1] === row) {
           addManualRow();
           tbody.rows[tbody.rows.length - 1].cells[1].focus();
@@ -424,9 +446,6 @@ function addManualRow() {
   if (!foundNormalRow) {
     bCell.focus();
   }
-
-  // Rebuild powerPoints after adding a manual row
-  rebuildPowerPoints();
 }
 
 function parseTimeToSec(timeStr) {
@@ -478,7 +497,6 @@ function removeRowAndData(row) {
 
   // Update the chart and pie chart
   sortAllDatasets();
-  temperatureChart.update();
   updatePieChart();
 }
 
@@ -512,45 +530,53 @@ function parseAndExecuteNoteWithRemoval(row) {
   rebuildPowerPoints();
 }
 
-function maybeAddSyntheticTime(rawNote, defaultSec) {
-  const timeRegex = /\d{1,2}:\d{1,2}/;
+function maybeAddSyntheticTime(rawNote, defaultTimeSec) {
+  const timeRegex = /\d{1,2}:\d{2}/;
   if (timeRegex.test(rawNote)) {
-    return rawNote; 
+    return rawNote;
   }
 
-  const lower = rawNote.toLowerCase();
-  if (lower.includes("dry") || lower.includes("first") || lower.includes("drop")) {
-    const timeStr = formatTimeString(defaultSec); 
-    return `${rawNote} ${timeStr}`; 
+  const lower = rawNote.toLowerCase().trim();
+  const powerRegex = /^p[1-5]$/i; // Matches exactly "P1" to "P5"
+
+  if (
+    lower.includes("dry") ||
+    lower.includes("first") ||
+    lower.includes("drop") ||
+    powerRegex.test(lower)
+  ) {
+    const timeStr = formatTimeString(defaultTimeSec);
+    return `${rawNote} ${timeStr}`;
   }
 
   return rawNote;
 }
 
 function maybeAddPowerPoint(row) {
-  const noteVal = row.cells[3].innerText.trim();
+  const noteVal = row.dataset.syntheticNote || row.cells[3].innerText.trim();
   const tSec = parseInt(row.dataset.timeSec, 10);
   const xVal = tSec / 60;
 
+  // 1) Power + explicit time
   const explicitTimeRegex = /(P[1-5])\s+(\d{1,2}:\d{2})/i;
-  const match = noteVal.match(explicitTimeRegex);
+  let match = noteVal.match(explicitTimeRegex);
   if (match) {
     const powerLevel = match[1].toUpperCase();
-    const timeStr = match[2];
-    const timeSec = convertTimeStringToSeconds(timeStr);
-    powerPoints.push({ x: timeSec / 60, y: powerMap[powerLevel] });
-    updatePowerDataset();
+    const timeSec = convertTimeStringToSeconds(match[2]);
+    currentPower = powerLevel; // update currentPower
+    pushOrReplacePowerPoint(timeSec / 60, powerLevel);
     return;
   }
 
-  const pNoTimeRegex = /(P[1-5])(?!\s*\d)/i; 
-  if (pNoTimeRegex.test(noteVal)) {
-    powerPoints.push({ x: xVal, y: powerMap[currentPower] });
-    updatePowerDataset();
+  // 2) Power no time, e.g., "p4"
+  const pNoTimeRegex = /(P[1-5])(?!\s*\d)/i;
+  match = noteVal.match(pNoTimeRegex);
+  if (match) {
+    const powerLevel = match[1].toUpperCase();
+    currentPower = powerLevel; // ensure we update currentPower
+    pushOrReplacePowerPoint(xVal, currentPower);
     return;
   }
-
-  // Additional checks can be added here if necessary
 }
 
 function containsPowerChange(str) {
@@ -586,7 +612,7 @@ function forwardPatchPowerChange(row) {
 
     if (containsPowerChange(rNote) || rTimeSec < rowTimeSec) break;
 
-    powerPoints.push({ x: xVal, y: powerMap[newPower] });
+    pushOrReplacePowerPoint(xVal, newPower);
   }
   updatePowerDataset();
 }
@@ -596,21 +622,17 @@ function startRoast() {
   if (!checkBeanAndWeight()) return;
 
   if (running) {
-    console.log("Already running.");
     return;
   }
   running = true;
   startTime = Date.now() - elapsedTime;
   timerInterval = setInterval(updateTimer, 200);
 
-  logEvent("Roast Started");
-
   // Start power P5 at 0:00
-  powerPoints.push({ x: 0, y: powerMap["P5"] });
+  pushOrReplacePowerPoint(0, "P5");
   currentPower = "P5";
   updatePowerDataset();
   sortAllDatasets();
-  temperatureChart.update();
 
   promptSensorData(0);
   updateChartTitle();
@@ -627,10 +649,9 @@ function updateTimer() {
   // Update temperature chart every 30 seconds
   if (totalSec > 0 && totalSec % 30 === 0) {
     const xVal = totalSec / 60;
-    powerPoints.push({ x: xVal, y: powerMap[currentPower] });
+    pushOrReplacePowerPoint(xVal, currentPower);
     updatePowerDataset();
     sortAllDatasets();
-    temperatureChart.update(); // Update without animation as configured
 
     promptSensorData(totalSec);
   }
@@ -647,12 +668,12 @@ function resetRoast(partial = false) {
   document.getElementById("timer").innerText = "00:00";
 
   // Clear chart data
-  temperatureChart.data.datasets.forEach(ds => ds.data = []);
+  temperatureChart.data.datasets.forEach((ds) => (ds.data = []));
   temperatureChart.options.plugins.annotation.annotations = {};
   temperatureChart.update();
 
   // Clear pie
-  pieChart.data.datasets[0].data = [0,0,0];
+  pieChart.data.datasets[0].data = [0, 0, 0];
   pieChart.update();
 
   // Clear table
@@ -667,14 +688,12 @@ function resetRoast(partial = false) {
   resetDropTimesUI();
   targetDropTimes = {};
 
-  currentPower = "P5";  
-  manualRowTimeSec = 0;  
+  currentPower = "P5";
+  manualRowTimeSec = 0;
 
   // Clear power points array
   powerPoints = [];
   updatePowerDataset();
-
-  if (!partial) logEvent("Roast Reset");
 }
 
 function resetRoastAll() {
@@ -691,106 +710,90 @@ function changePowerLevel(level) {
   currentPower = level;
   const timeStr = getCurrentTimeString();
 
-  // Omit "at" if !manualMode
-  if (manualMode) {
-    logEvent(`${level} at ${timeStr}`);
-    appendNoteToLastRow(timeStr, `${level} at ${timeStr}`);
-  } else {
-    logEvent(`${level} ${timeStr}`); // no "at"
-    appendNoteToLastRow(timeStr, `${level} ${timeStr}`);
-  }
+  appendNoteToLastRow(timeStr, `${level} ${timeStr}`);
 
-  const xVal = (elapsedTime / 1000) / 60;
-  powerPoints.push({ x: xVal, y: powerMap[level] });
+  const xVal = elapsedTime / 1000 / 60;
+  pushOrReplacePowerPoint(xVal, level);
   updatePowerDataset();
   sortAllDatasets();
-  temperatureChart.update();
 }
 
 function toggleDrumSpeed() {
-  drumSpeed = (drumSpeed === "Low") ? "High" : "Low";
+  drumSpeed = drumSpeed === "Low" ? "High" : "Low";
   const timeStr = getCurrentTimeString();
 
   if (manualMode) {
-    logEvent(`Drum ${drumSpeed} at ${timeStr}`);
     appendNoteToLastRow(timeStr, `Drum ${drumSpeed} at ${timeStr}`);
   } else {
-    logEvent(`Drum ${drumSpeed} ${timeStr}`);
     appendNoteToLastRow(timeStr, `Drum ${drumSpeed} ${timeStr}`);
   }
 }
 
 function milestoneEvent(name) {
-  // Prevent duplicate processing
   if (isProcessingMilestone) {
-    console.warn(`Already processing a milestone. Skipping: ${name}`);
+    console.warn(
+      `Milestone event processing is already in progress. Skipping: ${name}`
+    );
     return;
   }
   isProcessingMilestone = true;
 
-  console.log(`milestoneEvent called with: ${name}`);
+  try {
+    const timeStr = getCurrentTimeString();
 
-  const timeStr = getCurrentTimeString();
-
-  // Omit "at" if !manualMode
-  if (manualMode) {
-    logEvent(`${name} at ${timeStr}`);
-    appendNoteToLastRow(timeStr, `${name} at ${timeStr}`);
-  } else {
-    logEvent(`${name} ${timeStr}`);
     appendNoteToLastRow(timeStr, `${name} ${timeStr}`);
+
+    const xVal = elapsedTime / 1000 / 60;
+    if (name.toLowerCase().includes("dry")) {
+      dryEndTime = elapsedTime / 1000;
+      addMilestoneAnnotation("Dry End", xVal);
+    } else if (name.toLowerCase().includes("first")) {
+      firstCrackTime = elapsedTime / 1000;
+      addMilestoneAnnotation("First Crack", xVal);
+      computeTargetDropTimes();
+    } else if (name.toLowerCase().includes("drop")) {
+      dropTime = elapsedTime / 1000;
+      addMilestoneAnnotation("Drop", xVal);
+
+      running = false;
+      clearInterval(timerInterval);
+    }
+    updatePieChart();
+
+  } catch (error) {
+    console.error(`Error processing milestone event "${name}":`, error);
+  } finally {
+    // Ensure the flag is reset even if an error occurs
+    isProcessingMilestone = false;
   }
-
-  const xVal = (elapsedTime / 1000) / 60;
-  if (name.toLowerCase().includes("dry")) {
-    dryEndTime = elapsedTime / 1000;
-    addMilestoneAnnotation("Dry End", xVal);
-  } else if (name.toLowerCase().includes("first")) {
-    firstCrackTime = elapsedTime / 1000;
-    addMilestoneAnnotation("First Crack", xVal);
-    computeTargetDropTimes();
-  } else if (name.toLowerCase().includes("drop")) {
-    dropTime = elapsedTime / 1000;
-    addMilestoneAnnotation("Drop", xVal);
-
-    running = false;
-    clearInterval(timerInterval);
-    logEvent("Roast Dropped");
-  }
-  updatePieChart();
-
-  console.log(`Milestone ${name} added at ${xVal} minutes.`);
-
-  // Reset the flag after processing
-  isProcessingMilestone = false;
 }
 
 //========== LOGGING ==========
+/*
 function logEvent(desc) {
   // Example Firestore logging if needed
-  db.collection("roastEvents").add({
-    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-    event: desc
-  }).catch(err => console.error("Error logging event:", err));
+  db.collection("roastEvents")
+    .add({
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      event: desc
+    })
+    .catch((err) => console.error("Error logging event:", err));
 }
+*/
 
 function logData(timeSec, sensorB, sensorA, notes, addToTable = true) {
   const payload = {
     time: timeSec,
     sensorB,
     sensorA,
-    notes,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    notes//,
   };
-  db.collection("roastLogs").add(payload)
-    .then(() => {
-      // Only add row to table if not manual
-      if (!manualMode && addToTable) {
-        addDataToTable(timeSec, sensorB, sensorA, notes);
-      }
-      addOrReplaceChartData(timeSec, sensorB, sensorA);
-    })
-    .catch(err => console.error("Error logging data:", err));
+
+  // Only add row to table if not manual
+  if (!manualMode && addToTable) {
+    addDataToTable(timeSec, sensorB, sensorA, notes);
+  }
+  addOrReplaceChartData(timeSec, sensorB, sensorA);
 }
 
 function promptSensorData(totalSec) {
@@ -833,41 +836,67 @@ function addOrReplaceChartData(timeSec, sensorB, sensorA) {
   removeChartPoint("Sensor A", xVal);
 
   temperatureChart.data.datasets
-    .find(ds => ds.label === "Sensor B")
+    .find((ds) => ds.label === "Sensor B")
     .data.push({ x: xVal, y: sensorB });
   temperatureChart.data.datasets
-    .find(ds => ds.label === "Sensor A")
+    .find((ds) => ds.label === "Sensor A")
     .data.push({ x: xVal, y: sensorA });
 
   sortAllDatasets();
-  temperatureChart.update();
 }
 
 /**
  * handleTableClick => user can edit B/A or note with single click
  */
 function handleTableClick(e) {
+  // Ensure the clicked element is a table cell (TD)
   if (e.target.tagName !== "TD") return;
-  if (e.target.cellIndex === 0) return; 
+
+  // Skip the first column (e.g., Time)
+  if (e.target.cellIndex === 0) return;
+
   const row = e.target.parentElement;
+
+  // Prevent editing the "Charge" row if applicable
   if (row.cells[0].innerText === "Charge") return;
 
-  // Prevent multiple input boxes
-  if (e.target.querySelector('input')) return;
+  // Prevent multiple input fields in the same cell
+  if (e.target.querySelector("input")) return;
 
-  const oldValue = e.target.innerText;
+  const oldValue = e.target.innerText.trim();
+
+  // Create an input element for editing
   const input = document.createElement("input");
   input.type = "text";
   input.value = oldValue;
   input.style.width = "100%";
-  e.target.innerHTML = "";
+  e.target.innerHTML = ""; // Clear the cell's current content
   e.target.appendChild(input);
   input.focus();
 
-  input.addEventListener("blur", () => saveEdit(row, e.target.cellIndex, input.value));
-  input.addEventListener("keypress", (evt) => {
+  /**
+   * Function to handle saving or reverting the edit
+   */
+  const handleEdit = () => {
+    const newVal = input.value.trim();
+
+    if (newVal === oldValue) {
+      // No changes detected; restore the original cell content
+      e.target.innerText = oldValue;
+    } else {
+      // Changes detected; proceed to save the new value
+      saveEdit(row, e.target.cellIndex, newVal);
+    }
+  };
+
+  // Event listener for losing focus (blur)
+  input.addEventListener("blur", handleEdit);
+
+  // Event listener for keydown (Enter key)
+  input.addEventListener("keydown", (evt) => {
     if (evt.key === "Enter") {
-      saveEdit(row, e.target.cellIndex, input.value);
+      evt.preventDefault(); // Prevent default Enter key behavior
+      input.blur(); // Trigger the blur event to handle the edit
     }
   });
 }
@@ -876,12 +905,17 @@ function handleTableClick(e) {
  * saveEdit => now we unify normal/manual => if col=3 is notes => remove old lines, parse new
  */
 function saveEdit(row, cellIndex, newVal) {
+  // Trim the new value
+  newVal = newVal.trim();
+
+  // Update the cell's displayed text
   row.cells[cellIndex].innerText = newVal;
 
   const tSec = parseInt(row.dataset.timeSec, 10);
+  const timeStr = formatTimeString(tSec); // e.g., "2:00"
 
   if (cellIndex === 1 || cellIndex === 2) {
-    // B or A sensor value changed
+    // Sensor B or Sensor A value changed
     const bVal = parseFloat(row.cells[1].innerText.trim());
     const aVal = parseFloat(row.cells[2].innerText.trim());
     if (!isNaN(bVal) && !isNaN(aVal)) {
@@ -889,14 +923,40 @@ function saveEdit(row, cellIndex, newVal) {
     }
   } else if (cellIndex === 3) {
     // Note changed => rebuild powerPoints and update chart
-    const newNote = row.cells[3].innerText.trim();
-    row.dataset.oldNote = newNote; // Update oldNote
+    let rawNote = row.cells[3].innerText.trim();
+
+    // **Do not modify the cell's innerText**
+    // Instead, store the synthetic note in a data attribute
+    const syntheticNote = maybeAddSyntheticTime(rawNote, tSec, timeStr);
+    row.dataset.syntheticNote = syntheticNote; // Store synthetic note in data attribute
 
     // Rebuild powerPoints from the updated table
     rebuildPowerPoints();
+
+    // Parse and execute the synthetic note
+    parseAndExecuteNoteWithRemoval(row);
   }
 
   updatePieChart();
+
+  if (manualMode) {
+    // **Determine if the current row is the last row**
+    const tbody = document.querySelector("#roastTable tbody");
+    const allRows = tbody.querySelectorAll("tr");
+    const isLastRow = row === allRows[allRows.length - 1];
+
+    if (isLastRow) {
+      // **If editing the last row, add a new row and focus on its Sensor B cell**
+      if (cellIndex === 1) {
+        row.cells[2].focus();
+      } else if (cellIndex === 2) {
+        row.cells[3].focus();
+      } else if (cellIndex === 3) {
+        addManualRow();
+        tbody.rows[tbody.rows.length - 1].cells[1].focus();
+      }
+    }
+  }
 }
 
 // ========== MILESTONE LINES & POWER REMOVALS ETC. ==========
@@ -907,7 +967,7 @@ function removeOldMilestoneLines(oldNote) {
   const matches = [...noteLower.matchAll(pattern)];
   if (!matches.length) return;
 
-  matches.forEach(m => {
+  matches.forEach((m) => {
     const eventNameLower = m[1];
     const timeStr = m[2];
     let normalizedName = "";
@@ -918,13 +978,13 @@ function removeOldMilestoneLines(oldNote) {
     } else if (eventNameLower.includes("drop")) {
       normalizedName = "Drop";
     }
-    const sec = convertTimeStringToSeconds(timeStr); 
+    const sec = convertTimeStringToSeconds(timeStr);
     removeOneMilestoneAnnotation(normalizedName, sec);
   });
 }
 
 function removeOneMilestoneAnnotation(eventName, noteSec) {
-  const annID = makeAnnID(eventName, noteSec); 
+  const annID = makeAnnID(eventName, noteSec);
   delete temperatureChart.options.plugins.annotation.annotations[annID];
   temperatureChart.update();
 }
@@ -935,26 +995,29 @@ function removeOldNotePoints(note) {
   const matches = [...note.matchAll(powerPattern)];
   if (!matches.length) return;
 
-  matches.forEach(m => {
+  matches.forEach((m) => {
     const powerLevel = m[1].toUpperCase();
     const timeStr = m[2];
     const timeSec = convertTimeStringToSeconds(timeStr);
     const xVal = timeSec / 60;
     removeChartPoint("Power Level", xVal);
     // Also remove from powerPoints array
-    powerPoints = powerPoints.filter(p => !(p.x === xVal && p.y === powerMap[powerLevel]));
+    powerPoints = powerPoints.filter(
+      (p) => !(p.x === xVal && p.y === powerMap[powerLevel])
+    );
     updatePowerDataset();
   });
 
   sortAllDatasets();
-  temperatureChart.update();
 }
 
-function parseAndExecuteNote(note, defaultTimeSec=0) {
+function parseAndExecuteNote(note, defaultTimeSec = 0) {
   if (!note) return;
-  const segments = note.split(",").map(s => s.trim()).filter(Boolean);
-  segments.forEach(seg => {
-    const re = /(P[1-5])\s+(\d{1,2}:\d{2})|Dry\s?end\s+(\d{1,2}:\d{2})|first\s?crack\s+(\d{1,2}:\d{2})|drop\s+(\d{1,2}:\d{2})|drum\s?high\s+(\d{1,2}:\d{2})|drum\s?low\s+(\d{1,2}:\d{2})/i;
+
+  const segments = note.split(",").map((s) => s.trim()).filter(Boolean);
+  segments.forEach((seg) => {
+    const re =
+      /(P[1-5])\s+(\d{1,2}:\d{2})|Dry\s?end\s+(\d{1,2}:\d{2})|first\s?crack\s+(\d{1,2}:\d{2})|drop\s+(\d{1,2}:\d{2})|drum\s?high\s+(\d{1,2}:\d{2})|drum\s?low\s+(\d{1,2}:\d{2})/i;
     const match = seg.match(re);
     if (match) {
       applyMatchWithTime(seg, match);
@@ -1025,7 +1088,7 @@ function applyNoTimeSegment(seg, defaultTimeSec) {
 function applyNoteAction(action, noteSec) {
   const xVal = noteSec / 60;
   if (action.startsWith("p")) {
-    powerPoints.push({ x: xVal, y: powerMap[action.toUpperCase()] });
+    pushOrReplacePowerPoint(xVal, action.toUpperCase());
     currentPower = action.toUpperCase();
     updatePowerDataset();
   } else if (action.includes("dry")) {
@@ -1041,7 +1104,6 @@ function applyNoteAction(action, noteSec) {
     // Stop the timer
     running = false;
     clearInterval(timerInterval);
-    logEvent("Roast Dropped");
   }
 }
 
@@ -1052,6 +1114,28 @@ function addMilestoneAnnotation(name, xVal) {
   // Check if the annotation already exists
   if (temperatureChart.options.plugins.annotation.annotations[annID]) {
     console.warn(`Annotation ${annID} already exists. Skipping addition.`);
+    return;
+  }
+
+  // **Additional Tolerance Check**
+  // Define a tolerance in seconds
+  const TOLERANCE_SEC = 1; // 1 second
+
+  // Check existing annotations for the same event within the tolerance
+  const existingAnnotations = Object.values(
+    temperatureChart.options.plugins.annotation.annotations
+  );
+  const hasCloseAnnotation = existingAnnotations.some((annotation) => {
+    if (annotation.label.content !== name) return false;
+    const existingXVal = annotation.xMin; // xMin is in minutes
+    const existingSec = Math.round(existingXVal * 60);
+    return Math.abs(existingSec - noteSec) <= TOLERANCE_SEC;
+  });
+
+  if (hasCloseAnnotation) {
+    console.warn(
+      `A ${name} annotation within ${TOLERANCE_SEC} seconds already exists. Skipping addition.`
+    );
     return;
   }
 
@@ -1077,8 +1161,6 @@ function addMilestoneAnnotation(name, xVal) {
 
   // Update the chart once after adding
   temperatureChart.update();
-
-  console.log(`Adding milestone annotation: ${name} at ${xVal} minutes`);
 }
 
 function updatePieChart() {
@@ -1086,9 +1168,7 @@ function updatePieChart() {
   let browning = 0;
   let development = 0;
 
-  const nowSec = manualMode
-    ? findMaxManualTimeSec()
-    : Math.floor(elapsedTime / 1000);
+  const nowSec = manualMode ? findMaxManualTimeSec() : Math.floor(elapsedTime / 1000);
 
   if (!dryEndTime && !firstCrackTime && !dropTime) {
     drying = nowSec;
@@ -1129,7 +1209,7 @@ function findMaxManualTimeSec() {
 
 function computeTargetDropTimes() {
   if (!firstCrackTime) return;
-  targetDropPercentages.forEach(p => {
+  targetDropPercentages.forEach((p) => {
     const frac = p / 100;
     targetDropTimes[p] = firstCrackTime / (1 - frac);
   });
@@ -1140,7 +1220,7 @@ function displayTargetDropTimes() {
   const dropList = document.getElementById("dropTimesList");
   if (!dropList) return;
   dropList.innerHTML = "";
-  targetDropPercentages.forEach(p => {
+  targetDropPercentages.forEach((p) => {
     let timeStr = "--:--";
     if (targetDropTimes[p]) {
       timeStr = formatTime(Math.floor(targetDropTimes[p] * 1000));
@@ -1173,13 +1253,13 @@ function convertTimeStringToSeconds(str) {
     console.error("convertTimeStringToSeconds called with non-string input:", str);
     return 0;
   }
-  
+
   const parts = str.split(":").map(Number);
   if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {
     console.error("Invalid time string format:", str);
     return 0;
   }
-  
+
   const [mm, ss] = parts;
   return mm * 60 + (ss || 0);
 }
@@ -1190,17 +1270,38 @@ function pad(num) {
 
 /** Remove a single data point from chart by x-value */
 function removeChartPoint(label, xVal) {
-  const ds = temperatureChart.data.datasets.find(d => d.label === label);
+  const ds = temperatureChart.data.datasets.find((d) => d.label === label);
   if (!ds) return;
-  const idx = ds.data.findIndex(pt => pt.x === xVal);
+  const idx = ds.data.findIndex((pt) => pt.x === xVal);
   if (idx !== -1) ds.data.splice(idx, 1);
 }
 
+/** Order all datasets within temperatureChart chronologically by x-value, then update graph */
 function sortAllDatasets() {
-  temperatureChart.data.datasets.forEach(ds => {
-    ds.data.sort((a,b) => a.x - b.x);
+  temperatureChart.data.datasets.forEach((ds) => {
+    ds.data.sort((a, b) => a.x - b.x);
   });
   temperatureChart.update();
+}
+
+/**
+ * pushOrReplacePowerPoint: 
+ * Ensures only 1 power value for a given x.
+ * If x already exists, replace that point's y value; 
+ * otherwise push a new {x, y}.
+ */
+function pushOrReplacePowerPoint(xVal, powerLevel) {
+  // Find existing index
+  const existingIndex = powerPoints.findIndex((p) => p.x === xVal);
+  const yVal = powerMap[powerLevel];
+  
+  if (existingIndex !== -1) {
+    // Replace
+    powerPoints[existingIndex].y = yVal;
+  } else {
+    // Insert
+    powerPoints.push({ x: xVal, y: yVal });
+  }
 }
 
 /** Append to note in last row (normal mode) */
@@ -1246,8 +1347,7 @@ function updateChartTitle() {
     dateVal = `${mm}/${dd}/${yyyy}`;
   }
 
-  temperatureChart.options.plugins.title.text =
-    `${bean}, ${startW}g, ${dateVal}`;
+  temperatureChart.options.plugins.title.text = `${bean}, ${startW}g, ${dateVal}`;
   temperatureChart.update();
 }
 
@@ -1256,76 +1356,45 @@ function updateChartTitle() {
  * Rebuild Power Points from the current table
  */
 function rebuildPowerPoints() {
-  const tbody = document.querySelector("#roastTable tbody");
-  if (!tbody) return;
-
-  // Reset powerPoints array
+  // 1. Clear powerPoints array; start with P5 at 0:00
   powerPoints = [];
+  pushOrReplacePowerPoint(0, "P5");
 
-  // Always start with P5 at 0:00
-  powerPoints.push({ x: 0, y: powerMap["P5"] });
-
-  // Reset milestones
+  // 2. Reset milestones & annotations
   dryEndTime = null;
   firstCrackTime = null;
   dropTime = null;
-
-  // Clear existing milestone annotations
   temperatureChart.options.plugins.annotation.annotations = {};
 
-  // Iterate through each row to extract power changes and milestones
+  // 3. Gather all row data into an array
+  const tbody = document.querySelector("#roastTable tbody");
+  if (!tbody) return;
+  
+  let rowData = [];
   for (let i = 0; i < tbody.rows.length; i++) {
     const row = tbody.rows[i];
-    if (row.cells[0].innerText === "Charge") continue; // Skip Charge row
+    // Skip "Charge" row if that's your convention
+    if (row.cells[0].innerText === "Charge") continue;
 
-    const note = row.cells[3].innerText;
-    const tSec = parseInt(row.dataset.timeSec, 10);
-    const xVal = tSec / 60; // Convert seconds to minutes
-
-    // Parse power changes
-    const powerData = parsePowerChange(note);
-    if (powerData) {
-      const { powerLevel, timeMin } = powerData;
-
-      // Prevent duplicate entries at the same time
-      const exists = powerPoints.some(p => p.x === timeMin && p.y === powerMap[powerLevel]);
-      if (!exists) {
-        powerPoints.push({ x: timeMin, y: powerMap[powerLevel] });
-      }
-    }
-
-    // Parse milestones
-    const milestones = parseMilestones(note);
-
-    if (milestones.dryEnd) {
-      dryEndTime = milestones.dryEnd;
-      addMilestoneAnnotation("Dry End", milestones.dryEnd / 60);
-    }
-
-    if (milestones.firstCrack) {
-      firstCrackTime = milestones.firstCrack;
-      addMilestoneAnnotation("First Crack", milestones.firstCrack / 60);
-      computeTargetDropTimes();
-    }
-
-    if (milestones.drop) {
-      dropTime = milestones.drop;
-      addMilestoneAnnotation("Drop", milestones.drop / 60);
-      // Stop the timer if Drop milestone is reached
-      running = false;
-      clearInterval(timerInterval);
-      logEvent("Roast Dropped");
-    }
+    const tSec = parseInt(row.dataset.timeSec, 10) || 0;
+    // Use synthetic note if present, else actual note cell
+    const note = row.dataset.syntheticNote || row.cells[3].innerText || "";
+    rowData.push({ tSec, note });
   }
 
-  // Sort powerPoints by time
+  // 4. Sort rowData by ascending time
+  rowData.sort((a, b) => a.tSec - b.tSec);
+
+  // 5. Parse each row's note in correct chronological order
+  rowData.forEach((item) => {
+    // parseAndExecuteNote does all the power changes & milestones
+    parseAndExecuteNote(item.note, item.tSec);
+  });
+
+  // 6. Sort final powerPoints by x-value & update chart
   powerPoints.sort((a, b) => a.x - b.x);
-
-  // Update the chart dataset
   updatePowerDataset();
-
-  // Ensure a power point at the current elapsed time
-  ensurePowerPointAtCurrentTime();
+  updatePieChart();  // optional
 }
 
 /**
@@ -1359,7 +1428,7 @@ function rebuildAnnotations() {
  */
 function makeAnnID(name, noteSec) {
   // Replace spaces with underscores and concatenate with timeSec
-  return `${name.replace(/\s+/g, '_')}_${noteSec}`;
+  return `${name.replace(/\s+/g, "_")}_${noteSec}`;
 }
 
 /**
@@ -1372,7 +1441,7 @@ function ensurePowerPointAtCurrentTime() {
 
   // Add a power point at the current time if the last power point is before the current time
   if (lastPowerPoint.x < currentTimeMin) {
-    powerPoints.push({ x: currentTimeMin, y: powerMap[currentPower] });
+    pushOrReplacePowerPoint(currentTimeMin, currentPower);
     updatePowerDataset();
   }
 }
@@ -1382,23 +1451,39 @@ function ensurePowerPointAtCurrentTime() {
  * This function ensures that the Power Level line reflects all power changes accurately.
  */
 function updatePowerDataset() {
-  const powerDataset = temperatureChart.data.datasets.find(ds => ds.label === "Power Level");
+  const powerDataset = temperatureChart.data.datasets.find(
+    (ds) => ds.label === "Power Level"
+  );
   if (!powerDataset) return;
 
-  // Clone and sort powerPoints to avoid mutation issues
-  powerDataset.data = powerPoints.slice().sort((a, b) => a.x - b.x);
-
-  // Determine currentPower based on precise elapsed time
-  const currentTimeMin = elapsedTime / 60000; // Convert ms to minutes (float)
-  const relevantPowerPoints = powerPoints.filter(p => p.x <= currentTimeMin);
-
-  if (relevantPowerPoints.length > 0) {
-    const latestPowerPoint = relevantPowerPoints[relevantPowerPoints.length - 1];
-    currentPower = getPowerLevelFromValue(latestPowerPoint.y); // Convert y back to P1-P5
-  } else {
-    currentPower = "P5"; // Default power level
+  // 1) Optionally add a trailing point if we want the line to extend to current time
+  const manualLastSec = findMaxManualTimeSec();
+  const currentTimeMin = manualMode
+    ? manualLastSec / 60
+    : elapsedTime / 60000;
+  const lastPoint = powerPoints[powerPoints.length - 1];
+  if (!lastPoint || lastPoint.x < currentTimeMin) {
+    pushOrReplacePowerPoint(currentTimeMin, currentPower);
   }
 
+  // 2) **Remove** the "consolidation" logic.
+  //    Instead, just sort and keep all points (including duplicates at same x).
+  powerPoints.sort((a, b) => a.x - b.x);
+
+  // 3) Assign powerPoints directly to the "Power Level" dataset
+  powerDataset.data = powerPoints.map((p) => ({ x: p.x, y: p.y }));
+
+  // 4) Determine currentPower based on the point nearest the current time
+  const relevantPowerPoints = powerPoints.filter((p) => p.x <= currentTimeMin);
+  if (relevantPowerPoints.length > 0) {
+    const latestPowerPoint =
+      relevantPowerPoints[relevantPowerPoints.length - 1];
+    currentPower = getPowerLevelFromValue(latestPowerPoint.y);
+  } else {
+    currentPower = "P5";
+  }
+
+  // 5) Update the chart
   temperatureChart.update();
 }
 
