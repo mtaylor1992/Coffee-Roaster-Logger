@@ -5,6 +5,8 @@ let timerInterval;
 let startTime;
 let elapsedTime = 0;
 let running = false;
+let currentPromptSec = 0;
+let tempModalTimeout = null;
 
 // Manual Mode
 let manualMode = false;
@@ -351,6 +353,46 @@ function setupEventListeners() {
   if (confirmLoadBtn) {
     confirmLoadBtn.addEventListener("click", handleLoadSelection);
   }
+
+  // Temp Modal Buttons
+  const cancelTempBtn = document.getElementById("cancelTempBtn");
+  if (cancelTempBtn) {
+    cancelTempBtn.addEventListener("click", () => {
+      // If user cancels, also treat it as missed input or handle differently
+      // e.g. fill with previous temps or do nothing
+      handleMissedTempInput(); 
+    });
+  }
+
+  const confirmTempBtn = document.getElementById("confirmTempBtn");
+  if (confirmTempBtn) {
+    confirmTempBtn.addEventListener("click", () => {
+      handleTempSubmit();
+    });
+  }
+
+  const bInput = document.getElementById("sensorBInput");
+  const aInput = document.getElementById("sensorAInput");
+
+  if (bInput) {
+    bInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault(); 
+        // Move focus to sensor A
+        aInput.focus();
+      }
+    });
+  }
+
+  if (aInput) {
+    aInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault(); 
+        // Submit the modal
+        handleTempSubmit();
+      }
+    });
+  }
 }
 
 /** If user typed charge temp but never pressed Enter, do it automatically **/
@@ -516,21 +558,57 @@ function toggleDeleteButtons() {
 
 function updateRowSensors(row) {
   const tSec = parseInt(row.dataset.timeSec, 10);
-  const bVal = parseFloat(row.cells[1].innerText.trim());
-  const aVal = parseFloat(row.cells[2].innerText.trim());
+
+  // Grab the raw text from the table cells
+  let bRaw = row.cells[1].innerText.trim();
+  let aRaw = row.cells[2].innerText.trim();
+
+  // Default blank cells to "0"
+  if (!bRaw) {
+    bRaw = "0";
+    row.cells[1].innerText = "0"; // optionally display "0" in the cell
+  }
+  if (!aRaw) {
+    aRaw = "0";
+    row.cells[2].innerText = "0";
+  }
+
+  const bVal = parseFloat(bRaw);
+  const aVal = parseFloat(aRaw);
+
+  // If both are valid numbers, add to chart
   if (!isNaN(bVal) && !isNaN(aVal)) {
     addOrReplaceChartData(tSec, bVal, aVal);
   }
 }
 
 function removeRowAndData(row) {
+  // 1) Identify the timeSec
+  const tSec = parseInt(row.dataset.timeSec, 10);
+  const xVal = tSec / 60;
+
+  // 2) Remove Sensor B/A points from the chart at that time
+  removeChartPoint("Sensor B", xVal);
+  removeChartPoint("Sensor A", xVal);
+
+  // 3) Remove any power changes or milestone lines if noted
+  const oldNote = row.dataset.oldNote || row.cells[3].innerText.trim();
+  removeOldNotePoints(oldNote);     // Removes any power references like "P4 1:23"
+  removeOldMilestoneLines(oldNote); // Removes Dry/First/Drop lines if in the note
+
+  // 4) Physically remove the row from the table
   row.parentElement.removeChild(row);
+
+  // 5) Update UI
   toggleDeleteButtons();
 
-  // Rebuild powerPoints from the remaining table entries
+  // Rebuild the powerPoints from the table (so all future references are consistent)
   rebuildPowerPoints();
 
-  // Update the chart and pie chart
+  // If you want to re-parse annotations from scratch:
+  rebuildAnnotations();
+
+  // Re-sort data sets & update chart
   sortAllDatasets();
   updatePieChart();
 }
@@ -669,7 +747,8 @@ function startRoast() {
   updatePowerDataset();
   sortAllDatasets();
 
-  promptSensorData(0);
+  //promptSensorData(0);
+  showTempModal(0);
   updateChartTitle();
   updatePhaseBackground();
 }
@@ -689,7 +768,8 @@ function updateTimer() {
     updatePowerDataset();
     sortAllDatasets();
     updatePhaseBackground();
-    promptSensorData(totalSec);
+    showTempModal(totalSec);
+    //promptSensorData(totalSec);
   }
 
   // Ensure powerPoints covers up to current time
@@ -823,6 +903,83 @@ function logData(timeSec, sensorB, sensorA, notes, addToTable = true) {
   addOrReplaceChartData(timeSec, sensorB, sensorA);
 }
 
+function showTempModal(totalSec) {
+  if (!running) return; // If roast is no longer running, skip
+  currentPromptSec = totalSec; // Store globally
+
+  // Format the time string for display
+  const timeLabel = formatTimeString(totalSec); // e.g. "4:30"
+  document.getElementById("tempModalTitle").innerText = `Enter Temperatures for ${timeLabel}`;
+
+  // Display the custom modal
+  document.getElementById("tempModal").style.display = "flex";
+  document.getElementById("tempPromptInfo").innerText = ""; // Clear old msg
+  document.getElementById("sensorBInput").value = "";
+  document.getElementById("sensorAInput").value = "";
+
+  // Focus Sensor B immediately
+  document.getElementById("sensorBInput").focus();
+
+  // If user doesn't submit within 28 seconds, treat it as "missed input"
+  tempModalTimeout = setTimeout(() => {
+    // Only do this if the modal is still open
+    if (document.getElementById("tempModal").style.display === "flex") {
+      handleMissedTempInput(totalSec);
+    }
+  }, 28000); // e.g. 28,000 ms = 28 seconds
+}
+
+function handleTempSubmit() {
+  // Cancel the missed-input timeout
+  clearTimeout(tempModalTimeout);
+
+  // Grab user inputs
+  const bInputVal = parseFloat(document.getElementById("sensorBInput").value);
+  const aInputVal = parseFloat(document.getElementById("sensorAInput").value);
+
+  // We need the time we’re logging for. One way:
+  //  - Option A: store `currentPromptSec` in a global or pass it in
+  //  - Option B: keep a hidden field in the modal
+  // For simplicity, let's assume we stored "currentPromptSec" globally:
+
+  if (isNaN(bInputVal) || isNaN(aInputVal)) {
+    document.getElementById("tempPromptInfo").innerText = "Invalid input. Numbers only.";
+    return;
+  }
+
+  // Log data
+  logData(currentPromptSec, bInputVal, aInputVal, "");
+
+  // Hide modal
+  document.getElementById("tempModal").style.display = "none";
+}
+
+function handleMissedTempInput(missedSec = null) {
+  clearTimeout(tempModalTimeout);
+  document.getElementById("tempModal").style.display = "none";
+
+  if (!missedSec) missedSec = currentPromptSec; 
+  // Or handle if user canceled after some delay
+
+  // 1) Get previous row’s B/A
+  const tbody = document.querySelector("#roastTable tbody");
+  let lastB = null, lastA = null;
+  if (tbody && tbody.rows.length) {
+    const lastRow = tbody.rows[tbody.rows.length - 1];
+    lastB = parseFloat(lastRow.cells[1].innerText) || 0;
+    lastA = parseFloat(lastRow.cells[2].innerText) || 0;
+  }
+
+  // 2) Insert a new row (like normal) with those values
+  logData(missedSec, lastB, lastA, "Temperature input missed");
+
+  // Or if you'd prefer not to add a new row but update an existing one, do it accordingly.
+  // But typically, you'd treat it as a new time mark with "missed" note.
+
+  console.log("Missed input at time:", missedSec);
+}
+
+/*
 function promptSensorData(totalSec) {
   if (!running) return;
   const timeStr = formatTimeString(totalSec);
@@ -839,6 +996,7 @@ function promptSensorData(totalSec) {
   }
   logData(totalSec, bNum, aNum, "");
 }
+*/
 
 /** ========== TABLE & CHART UPDATE ========== **/
 function addDataToTable(timeSec, sensorB, sensorA, notes) {
@@ -908,7 +1066,24 @@ function handleTableClick(e) {
     const newVal = input.value.trim();
 
     if (newVal === oldValue) {
-      // No changes detected; restore the original cell content
+      console.log("newval = oldval, no change detected");
+      // No changes detected
+      // Check if we should still create a new row in manual mode
+      if (manualMode && e.target.cellIndex === 3) {
+        console.log("Is manual mode and is a notes cell");
+        // Is this the last row in the table?
+        const tbody = document.querySelector("#roastTable tbody");
+        const allRows = tbody.querySelectorAll("tr");
+        const isLastRow = (row === allRows[allRows.length - 1]);
+
+        if (isLastRow) {
+          // Force the creation of a new row
+          console.log("Is last row, adding manual row");
+          addManualRow();
+          tbody.rows[tbody.rows.length - 1].cells[1].focus();
+        }
+      }
+      // Regardless of whether we added a row, restore old text and return
       e.target.innerText = oldValue;
     } else {
       // Changes detected; proceed to save the new value

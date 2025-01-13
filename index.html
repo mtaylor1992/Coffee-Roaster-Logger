@@ -147,5 +147,26 @@
         <div id="loadStatus" class="status-message"></div>
         </div>
     </div>
+
+    <!-- TEMPERATURE INPUT MODAL -->
+    <div id="tempModal" class="popup-overlay" style="display: none;">
+        <div class="popup-content">
+            <h2 id="tempModalTitle">Enter Sensor Temperatures</h2>
+            
+            <label for="sensorBInput">Sensor B:</label>
+            <input type="number" id="sensorBInput" />
+        
+            <br><br>
+        
+            <label for="sensorAInput">Sensor A:</label>
+            <input type="number" id="sensorAInput" />
+        
+            <div class="popup-buttons">
+                <button id="cancelTempBtn">Cancel</button>
+                <button id="confirmTempBtn">Submit</button>
+            </div>
+            <p id="tempPromptInfo" style="color:red;"></p>
+        </div>
+    </div>
 </body>
 </html>
