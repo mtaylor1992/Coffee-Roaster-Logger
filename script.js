@@ -189,6 +189,14 @@ function initializePieChart() {
   const canvas = document.getElementById("pieChart");
   if (!canvas) return;
 
+  // Get the computed font size of the table title
+  const tableTitle = document.querySelector(".table-section h3");
+  const computedStyle = window.getComputedStyle(tableTitle);
+  const fontSizeEm =
+    parseFloat(computedStyle.fontSize) /
+    parseFloat(getComputedStyle(document.body).fontSize);
+  const fontSizePx = 16 * fontSizeEm; // Assuming 1em = 16px
+
   pieChart = new Chart(canvas.getContext("2d"), {
     type: "pie",
     data: {
@@ -202,10 +210,19 @@ function initializePieChart() {
     },
     options: {
       responsive: true,
+      borderColor: ["#ffe080", "#ffb060", "#ff8060"],
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false }, // Removed the legend
-        title: { display: true, text: "Roast Phases", color: "black" },
+        title: {
+          display: true, 
+          text: "Roast Phases", 
+          color: "black", 
+          font: {
+            size: fontSizePx,
+            weight: "bold"
+          } 
+        },
         datalabels: {
           // Updated formatter to show labels only for active slices
           formatter: (value, ctx) => {
@@ -410,8 +427,8 @@ function checkBeanAndWeight() {
   const beanVal = (document.getElementById("beanType")?.value || "").trim();
   const startW = (document.getElementById("startWeight")?.value || "").trim();
   if (!beanVal || !startW) {
-    alert("Please enter Bean Type and Start Weight first.");
-    return false;
+    //alert("Please enter Bean Type and Start Weight first.");
+    //return false;
   }
   return true;
 }
