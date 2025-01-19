@@ -134,20 +134,73 @@
     
     <!-- LOAD POPUP -->
     <div id="loadPopup" class="popup-overlay" style="display: none;">
-        <div class="popup-content">
+        <div class="popup-content" id="loadPopupContent" style="width: 700px;">
         <h2>Load Roast</h2>
-        <label for="roastListSelect">Select a Saved Roast:</label>
-        <select id="roastListSelect">
-            <!-- Options will be populated dynamically -->
-        </select>
-        <div class="popup-buttons">
+    
+        <!-- Top Controls: Search & Sort, plus Count on the right -->
+        <div class="load-controls" 
+            style="display: flex; 
+                    gap: 10px; 
+                    margin-bottom: 10px; 
+                    align-items: center; 
+                    justify-content: space-between;">
+            
+            <!-- Left group: search and sort controls -->
+            <div style="display: flex; gap: 10px;">
+            <input
+                type="text"
+                id="roastSearchInput"
+                placeholder="Search bean type..."
+                style="width: 200px;"
+            />
+    
+            <select id="sortFieldSelect">
+                <option value="dateValue">Date</option>
+                <option value="beanType">Bean Type</option>
+                <option value="startWeight">Start Weight</option>
+            </select>
+    
+            <select id="sortDirectionSelect">
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+            </select>
+    
+            <button id="applySortBtn">Sort</button>
+            </div>
+    
+            <!-- Right side: roast count span -->
+            <span id="roastCountSpan" style="font-size: 0.9em; color: #666;">
+            <!-- e.g. "12 roasts found" -->
+            </span>
+        </div>
+    
+        <!-- Scrollable Table Section -->
+        <div class="table-container" style="flex: 1; min-height: 0; overflow-y: auto; border: 1px solid #ccc;">
+            <table id="roastListTable" style="width:100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Bean Type</th>
+                <th>Start Wt</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dynamic rows go here -->
+            </tbody>
+            </table>
+        </div>
+    
+        <!-- Bottom Buttons -->
+        <div class="popup-buttons" style="margin-top: 10px;">
             <button id="cancelLoadBtn">Cancel</button>
             <button id="confirmLoadBtn">Load</button>
         </div>
+    
         <div id="loadStatus" class="status-message"></div>
         </div>
     </div>
-
+   
     <!-- TEMPERATURE INPUT MODAL -->
     <div id="tempModal" class="popup-overlay" style="display: none;">
         <div class="popup-content">

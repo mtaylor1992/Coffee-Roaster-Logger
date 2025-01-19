@@ -116,7 +116,7 @@ label {
     background-color: rgba(0,0,0,0.4); /* semi-transparent background */
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     z-index: 999; /* On top of everything */
 }
   
@@ -136,6 +136,53 @@ label {
     justify-content: flex-end;
     gap: 10px;
     margin-top: 15px;
+}
+
+/* Table styling (optional, adjust as you like) */
+#roastListTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#roastListTable th, #roastListTable td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+}
+  
+#roastListTable tbody tr:hover {
+    background-color: #f2f2f2;
+    cursor: pointer;
+}
+
+/* For the entire popup content to be a flex container */
+#loadPopupContent {
+    margin-top: 20px;
+    width: 700px;        /* or whatever width you prefer */
+    max-height: 80vh;    /* limit popup to 80% of viewport height */
+    display: flex;       /* flex layout */
+    flex-direction: column; 
+}
+  
+/* The top controls can stay as is, or you can style them. */
+.load-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+  
+/* The scrollable container for the roast table */
+.table-container {
+    flex: 1;             /* make it take up remaining space */
+    min-height: 0;       /* important for flex scroll containers */
+    overflow-y: auto;    /* enable vertical scrolling for large tables */
+    border: 1px solid #ccc;  /* optional border or styling */
+    margin-bottom: 10px; /* some spacing before bottom buttons */
+}
+  
+/* Class to highlight the selected row */
+.selected-row {
+    background-color: #b3d7ff !important; /* or any highlight color */
 }
   
 .status-message {

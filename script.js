@@ -7,6 +7,8 @@ let elapsedTime = 0;
 let running = false;
 let currentPromptSec = 0;
 let tempModalTimeout = null;
+let roastsArray = [];        // Holds all roasts from Firestore
+let selectedRoastDocId = ""; // Which doc the user clicked in the table
 
 // Manual Mode
 let manualMode = false;
@@ -370,6 +372,52 @@ function setupEventListeners() {
   if (confirmLoadBtn) {
     confirmLoadBtn.addEventListener("click", handleLoadSelection);
   }
+
+  document.getElementById("confirmLoadBtn").addEventListener("click", () => {
+    if (!selectedRoastDocId) {
+      document.getElementById("loadStatus").innerText = "Please select a roast row first.";
+      return;
+    }
+    handleLoadSelection(selectedRoastDocId);
+  });  
+
+  document.getElementById("roastSearchInput").addEventListener("input", (e) => {
+    const query = e.target.value.toLowerCase().trim();
+  
+    const filtered = roastsArray.filter(r => {
+      return r.beanType.toLowerCase().includes(query);
+      // Or also check dateValue, docId, etc. for multi-field search
+    });
+  
+    // Re-render with the filtered list
+    renderRoastListTable(filtered);
+  });
+  
+  document.getElementById("applySortBtn").addEventListener("click", () => {
+    const field = document.getElementById("sortFieldSelect").value;   // "dateValue", "beanType", ...
+    const direction = document.getElementById("sortDirectionSelect").value; // "asc" or "desc"
+  
+    roastsArray.sort((a, b) => {
+      let valA = a[field];
+      let valB = b[field];
+  
+      // If sorting startWeight as a number:
+      if (field === "startWeight") {
+        valA = parseFloat(valA) || 0;
+        valB = parseFloat(valB) || 0;
+      }
+      // If dateValue is "YYYY-MM-DD", you can compare strings or parse Date
+      // e.g. if it's "2025-01-12", the string sort works because YYYY-MM-DD is lexically ascending
+      // But if you stored "MM/DD/YYYY", you'd parse differently.
+  
+      if (valA < valB) return direction === "asc" ? -1 : 1;
+      if (valA > valB) return direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  
+    // Now re-render
+    renderRoastListTable(roastsArray);
+  });
 
   // Temp Modal Buttons
   const cancelTempBtn = document.getElementById("cancelTempBtn");
@@ -996,25 +1044,6 @@ function handleMissedTempInput(missedSec = null) {
   console.log("Missed input at time:", missedSec);
 }
 
-/*
-function promptSensorData(totalSec) {
-  if (!running) return;
-  const timeStr = formatTimeString(totalSec);
-  const bVal = prompt(`Enter Sensor B temp at ${timeStr}:`, "");
-  if (bVal === null) return;
-  const aVal = prompt(`Enter Sensor A temp at ${timeStr}:`, "");
-  if (aVal === null) return;
-
-  const bNum = parseFloat(bVal);
-  const aNum = parseFloat(aVal);
-  if (isNaN(bNum) || isNaN(aNum)) {
-    alert("Invalid input. Numbers only.");
-    return;
-  }
-  logData(totalSec, bNum, aNum, "");
-}
-*/
-
 /** ========== TABLE & CHART UPDATE ========== **/
 function addDataToTable(timeSec, sensorB, sensorA, notes) {
   const tbody = document.querySelector("#roastTable tbody");
@@ -1410,7 +1439,7 @@ function updatePhaseBackground() {
       yMin: 0,
       yMax: "100%", // or a large number, e.g. 9999
       backgroundColor: "rgba(255, 224, 128, 0.5)", // #ffe080 w/ alpha
-      borderWidth: 0
+      borderWidth: 0,
     };
   //}
 
@@ -1866,10 +1895,10 @@ function hideSavePopup() {
 }
 
 async function doSaveRoast() {
-  const roastName = document.getElementById("saveRoastName").value.trim();
+  docId = document.getElementById("saveRoastName").value.trim();
   const statusEl = document.getElementById("saveStatus");
 
-  if (!roastName) {
+  if (!docId) {
     statusEl.innerText = "Roast name cannot be empty.";
     statusEl.style.color = "red";
     return;
@@ -1940,7 +1969,7 @@ async function doSaveRoast() {
 
   try {
     // Instead of "01/12/25 16:35", change to "01-12-25 16:35"
-    const cleanedName = roastName.replace(/\//g, "-"); 
+    const cleanedName = docId.replace(/\//g, "-"); 
     await db.collection("roasts").doc(cleanedName).set(roastData);
     statusEl.style.color = "green";
     statusEl.innerText = "Saved successfully!";
@@ -1955,27 +1984,105 @@ async function showLoadPopup() {
   document.getElementById("loadStatus").innerText = "";
   document.getElementById("loadPopup").style.display = "flex";
 
-  const selectEl = document.getElementById("roastListSelect");
-  selectEl.innerHTML = ""; // Clear old options
+  roastsArray = []; // clear the global array
+  selectedRoastDocId = ""; // nothing selected yet
 
   try {
     const snapshot = await db.collection("roasts").orderBy("timestamp", "desc").get();
     if (!snapshot.empty) {
       snapshot.forEach(doc => {
-        const opt = document.createElement("option");
-        opt.value = doc.id;
-        opt.textContent = doc.id; 
-        selectEl.appendChild(opt);
+        const data = doc.data();
+        // e.g. beanType, startWeight, dateValue, maybe finalTimeSec, etc.
+        // The doc ID might be "Colombia 454g 01-12-25 16:35", or something else
+
+        roastsArray.push({
+          docId: doc.id,
+          beanType: data.beanType || "",
+          startWeight: data.startWeight || "",
+          dateValue: data.dateValue || "", // e.g. "2025-01-12"
+          // If you store time in doc data or parse from doc.id:
+          roastTime: parseTimeFromDocId(doc.id), 
+          // ^ optional helper if your docId includes "16:35"
+        });
       });
-    } else {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "No saved roasts found";
-      selectEl.appendChild(opt);
     }
+
+    // Render the table
+    renderRoastListTable(roastsArray);
+
   } catch (err) {
     console.error("Error loading roasts:", err);
+    document.getElementById("loadStatus").innerText = "Failed to load roasts.";
   }
+}
+
+function parseTimeFromDocId(docId) {
+  // If docId = "Colombia 454g 01-12-25 16:35"
+  // we can try to match the last "HH:MM"
+  const match = docId.match(/\b\d{1,2}:\d{2}\b/);
+  return match ? match[0] : "";
+}
+
+function renderRoastListTable(roasts) {
+  const tbody = document.querySelector("#roastListTable tbody");
+  if (!tbody) return;
+  tbody.innerHTML = ""; // clear old rows
+
+  roasts.forEach(roast => {
+    const { docId, beanType, startWeight, dateValue, roastTime } = roast;
+
+    const tr = document.createElement("tr");
+
+    // 1) Date
+    const dateTd = document.createElement("td");
+    dateTd.innerText = formatDateMMDDYY(roast.dateValue);
+    tr.appendChild(dateTd);
+
+    // 2) Time
+    const tdTime = document.createElement("td");
+    tdTime.innerText = roastTime; // or parse from dateValue if you stored it
+    tr.appendChild(tdTime);
+
+    // 3) Bean Type
+    const tdBean = document.createElement("td");
+    tdBean.innerText = beanType;
+    tr.appendChild(tdBean);
+
+    // 4) Start Weight
+    const tdWeight = document.createElement("td");
+    tdWeight.innerText = startWeight;
+    tr.appendChild(tdWeight);
+
+    // Row click to select
+    tr.addEventListener("click", () => {
+      // Un-highlight any existing selection
+      document.querySelectorAll("#roastListTable tbody tr").forEach(rowEl => {
+        rowEl.classList.remove("selected-row");
+      });
+      // Highlight this row
+      tr.classList.add("selected-row");
+      // Remember which doc is selected
+      selectedRoastDocId = docId;
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  // Update the count
+  const roastCountSpan = document.getElementById("roastCountSpan");
+  if (roastCountSpan) {
+    roastCountSpan.innerText = `${roasts.length} roasts found`;
+  }
+}
+
+function formatDateMMDDYY(yyyy_mm_dd) {
+  // e.g. "2025-01-12" => "01/12/25"
+  if (!yyyy_mm_dd) return "";
+  const parts = yyyy_mm_dd.split("-");
+  if (parts.length !== 3) return yyyy_mm_dd; // fallback if invalid
+  let [yyyy, mm, dd] = parts;
+  const yy = yyyy.slice(-2); // last two digits
+  return `${mm}/${dd}/${yy}`;
 }
 
 function hideLoadPopup() {
@@ -1983,16 +2090,8 @@ function hideLoadPopup() {
 }
 
 async function handleLoadSelection() {
-  const selectEl = document.getElementById("roastListSelect");
-  const roastName = selectEl.value;
-
-  if (!roastName) {
-    document.getElementById("loadStatus").innerText = "Please select a valid roast.";
-    return;
-  }
-
   try {
-    const docRef = db.collection("roasts").doc(roastName);
+    const docRef = db.collection("roasts").doc(selectedRoastDocId);
     const docSnap = await docRef.get();
 
     if (!docSnap.exists) {
@@ -2052,10 +2151,6 @@ async function handleLoadSelection() {
 
     // Display that final time on the timer
     document.getElementById("timer").innerText = formatTimeString(dropTime);
-
-    // If you want the loaded roast's total time to show:
-    //  - You can find the max datasetTimeSec among the table rows and display it
-    //    or do nothing if you want to remain consistent that it's a "view only."
 
   } catch (err) {
     console.error("Load error:", err);
