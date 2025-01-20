@@ -942,6 +942,13 @@ function resetRoast(partial = false) {
 
 function resetRoastAll() {
   resetRoast();
+  // Auto-fill date input
+  const dateEl = document.getElementById("date");
+  if (dateEl) {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    dateEl.value = now.toISOString().slice(0, 10);
+  }
   document.getElementById("beanType").value = "";
   document.getElementById("startWeight").value = "";
   document.getElementById("endWeight").value = "";
@@ -2523,7 +2530,7 @@ async function handleLoadSelection() {
     hideLoadPopup();
 
     // Clear current UI
-    resetRoastAll(); // or resetRoast(); then also clear the date, bean, etc. yourself.
+    resetRoastAll();
 
     // Populate fields
     document.getElementById("beanType").value = data.beanType || "";
