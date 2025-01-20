@@ -9,6 +9,8 @@ let currentPromptSec = 0;
 let tempModalTimeout = null;
 let roastsArray = [];        // Holds all roasts from Firestore
 let selectedRoastDocId = ""; // Which doc the user clicked in the table
+let previewChart;   // line chart
+let previewPie;     // pie chart
 
 // Manual Mode
 let manualMode = false;
@@ -341,8 +343,6 @@ function setupEventListeners() {
     });
   }
 
-  // ADDED SAVE/LOAD FEATURES
-  // NEW: Save/Load button event listeners
   const saveBtn = document.getElementById("saveRoastBtn");
   if (saveBtn) {
     saveBtn.addEventListener("click", showSavePopup);
@@ -353,7 +353,6 @@ function setupEventListeners() {
     loadBtn.addEventListener("click", showLoadPopup);
   }
 
-  // NEW: Inside the save popup
   const cancelSaveBtn = document.getElementById("cancelSaveBtn");
   if (cancelSaveBtn) {
     cancelSaveBtn.addEventListener("click", hideSavePopup);
@@ -363,7 +362,6 @@ function setupEventListeners() {
     confirmSaveBtn.addEventListener("click", doSaveRoast);
   }
 
-  // NEW: Inside the load popup
   const cancelLoadBtn = document.getElementById("cancelLoadBtn");
   if (cancelLoadBtn) {
     cancelLoadBtn.addEventListener("click", hideLoadPopup);
@@ -406,9 +404,6 @@ function setupEventListeners() {
         valA = parseFloat(valA) || 0;
         valB = parseFloat(valB) || 0;
       }
-      // If dateValue is "YYYY-MM-DD", you can compare strings or parse Date
-      // e.g. if it's "2025-01-12", the string sort works because YYYY-MM-DD is lexically ascending
-      // But if you stored "MM/DD/YYYY", you'd parse differently.
   
       if (valA < valB) return direction === "asc" ? -1 : 1;
       if (valA > valB) return direction === "asc" ? 1 : -1;
@@ -458,6 +453,74 @@ function setupEventListeners() {
       }
     });
   }
+
+  //Mini previews in load popup
+  function initializePreviewCharts() {
+    const lineCanvas = document.getElementById("previewChart");
+    if (lineCanvas) {
+      previewChart = new Chart(lineCanvas.getContext("2d"), {
+        type: "line",
+        data: {
+          datasets: [
+            { label: "Sensor B", data: [], borderColor: "blue", fill: false, pointRadius: 0 },
+            { label: "Sensor A", data: [], borderColor: "green", fill: false, pointRadius: 0 }
+          ]
+        },
+        options: {
+          responsive: false, // so it doesn't shrink unpredictably
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { type: "linear", position: "bottom", min: 0 },
+            y: { min: 0 } // or any min you prefer
+          }
+        }
+      });
+    }
+
+    const pieCanvas = document.getElementById("previewPie");
+    if (pieCanvas) {
+      previewPie = new Chart(pieCanvas.getContext("2d"), {
+        type: "pie",
+        data: {
+          labels: ["Drying", "Browning", "Development"],
+          datasets: [
+            { data: [0, 0, 0], backgroundColor: ["#ffe080", "#ffb060", "#ff8060"] }
+          ]
+        },
+        options: {
+          responsive: false,
+          borderColor: ["#ffe080", "#ffb060", "#ff8060"],
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }, // Removed the legend
+            datalabels: {
+              // Updated formatter to show labels only for active slices
+              formatter: (value, ctx) => {
+                const total = ctx.chart.data.datasets[ctx.datasetIndex].data.reduce(
+                  (a, b) => a + b,
+                  0
+                );
+                if (total === 0 || value === 0) return ""; // Hide label if slice is inactive
+                let pct = ((value / total) * 100).toFixed(1) + "%";
+                const label = ctx.chart.data.labels[ctx.dataIndex] || "";
+                const timeStr = formatTime(value * 1000);
+                // Return multi-line string without HTML tags
+                return `${label}\n${timeStr}\n${pct}`;
+              },
+              font: { size: 12, weight: "bold" }, // Set font weight to bold
+              color: "black",
+              align: "center",
+              anchor: "center"
+            },
+            tooltip: { enabled: false }
+          }
+        }
+      });
+    }
+  }
+
+  initializePreviewCharts();
 }
 
 /** If user typed charge temp but never pressed Enter, do it automatically **/
@@ -2028,6 +2091,11 @@ function renderRoastListTable(roasts) {
   if (!tbody) return;
   tbody.innerHTML = ""; // clear old rows
 
+  const roastCountSpan = document.getElementById("roastCountSpan");
+  if (roastCountSpan) {
+    roastCountSpan.innerText = `${roasts.length} roasts found`;
+  }
+
   roasts.forEach(roast => {
     const { docId, beanType, startWeight, dateValue, roastTime } = roast;
 
@@ -2063,16 +2131,368 @@ function renderRoastListTable(roasts) {
       tr.classList.add("selected-row");
       // Remember which doc is selected
       selectedRoastDocId = docId;
+      previewRoast(docId);
     });
 
     tbody.appendChild(tr);
   });
 
-  // Update the count
-  const roastCountSpan = document.getElementById("roastCountSpan");
-  if (roastCountSpan) {
-    roastCountSpan.innerText = `${roasts.length} roasts found`;
-  }
+  async function previewRoast(docId) {
+    // 1) Safety checks
+    if (!docId) return console.warn("No docId provided for previewRoast.");
+    if (!previewChart || !previewPie) {
+      console.warn("previewChart or previewPie not initialized globally.");
+      return;
+    }
+  
+    // 2) Fetch the Firestore doc
+    try {
+      const docRef = db.collection("roasts").doc(docId);
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) {
+        clearPreview(); // Optional: define a helper to blank out preview UI
+        return;
+      }
+      const data = docSnap.data() || {};
+  
+      // 3) Reset the previewChart fully (clear old data, old annotations, etc.)
+      //    We'll set up 3 datasets: Sensor B, Sensor A, Power Level
+      previewChart.data.datasets = [
+        {
+          label: "Sensor B",
+          borderColor: "blue",
+          yAxisID: "yTemp",
+          fill: false,
+          pointRadius: 0,
+          data: []
+        },
+        {
+          label: "Sensor A",
+          borderColor: "green",
+          yAxisID: "yTemp",
+          fill: false,
+          pointRadius: 0,
+          data: []
+        },
+        {
+          label: "Power Level",
+          borderColor: "red",
+          yAxisID: "yPower",
+          fill: false,
+          stepped: true,
+          pointRadius: 0,
+          data: []
+        }
+      ];
+      previewChart.options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: "",
+            color: "black",
+            font: {
+              size: 12,
+              weight: "bold"
+            }
+          },
+          annotation: {
+            annotations: {}
+          },
+          datalabels: false
+        },
+        scales: {
+          x: {
+            title: { display: true, text: "Time (min)" },
+            type: "linear",
+            position: "bottom",
+            min: 0,
+            ticks: {
+              stepSize: 0.5,
+              callback: (val) => (val % 1 === 0 ? val : "")
+            }
+          },
+          yTemp: {
+            title: { display: true, text: "Temperature (°F)" },
+            position: "left",
+            min: 95,
+            max: 360,
+            ticks: {
+              callback: (val) => Math.round(val)
+            }
+          },
+          yPower: {
+            title: { display: true, text: "Power Level" },
+            position: "right",
+            min: 0,
+            max: 100,
+            grid: { drawOnChartArea: false },
+            ticks: {
+              stepSize: 25,
+              callback: (val) => {
+                switch (val) {
+                  case 100:
+                    return "P5";
+                  case 75:
+                    return "P4";
+                  case 50:
+                    return "P3";
+                  case 25:
+                    return "P2";
+                  case 0:
+                    return "P1";
+                  default:
+                    return "";
+                }
+              }
+            }
+          }
+        },
+        // Add or modify the animation settings here
+        animation: {
+          duration: 0, // Disables animations
+          easing: "linear" // Optional: makes updates smoother if animations are enabled
+        }
+      }
+      previewChart.options.plugins.annotation.annotations = {}; // clear old annotations
+  
+      // 4) We'll track sensor data, power points, milestone times, etc.
+      let previewPowerPoints = [];
+      let previewDryEndSec = null;
+      let previewFirstCrackSec = null;
+      let previewDropSec = null;
+
+      // 4a) Always ensure we start at P5, x=0
+      // We'll insert it now, and if any note actually changes the 0:00 point,
+      // we can overwrite it later in the loop.
+      previewPowerPoints.push({ x: 0, y: powerMap["P5"] }); // i.e. {x:0, y:100}
+
+      // 5) Parse each tableRow for sensor values & notes
+      //    (We mimic your main script's approach)
+      (data.tableRows || []).forEach(row => {
+        const tSec = row.datasetTimeSec || 0;
+        const bVal = parseFloat(row.sensorB) || 0;
+        const aVal = parseFloat(row.sensorA) || 0;
+        
+        // Add sensor B / A to dataset
+        previewChart.data.datasets[0].data.push({ x: tSec / 60, y: bVal });
+        previewChart.data.datasets[1].data.push({ x: tSec / 60, y: aVal });
+
+        // Then parse the row's notes for power changes or milestones
+        if (row.notes) {
+          // minimal parse for power/milestone
+          parsePreviewNotes(row.notes, tSec);
+        }
+
+        function parsePreviewNotes(notesStr, defaultSec) {
+          const segments = notesStr.split(",").map(s => s.trim());
+          segments.forEach(seg => {
+            const timeMatch = seg.match(/\b\d{1,2}:\d{2}\b/);
+            let noteSec = defaultSec;
+            if (timeMatch) {
+              noteSec = convertTimeStringToSeconds(timeMatch[0]);
+            }
+            
+            // Check for power
+            const powerMatch = seg.match(/\bP[1-5]\b/i);
+            if (powerMatch) {
+              const powerLevel = powerMatch[0].toUpperCase(); // e.g. "P4"
+              const xVal = noteSec / 60;
+              const yVal = powerMap[powerLevel];
+              previewPowerPoints.push({ x: xVal, y: yVal });
+            }
+
+            // Check for milestones
+            if (/dry\s?end/i.test(seg)) {
+              previewDryEndSec = noteSec;
+            }
+            if (/first\s?crack/i.test(seg)) {
+              previewFirstCrackSec = noteSec;
+            }
+            if (/drop/i.test(seg)) {
+              previewDropSec = noteSec;
+            }
+          });
+        }
+      });
+
+      // 5a) If we have a finalTimeSec and finalPower from Firestore,
+      //     ensure the power line extends that far in time.
+      //     e.g., if finalTimeSec=540 (9 min) and finalPower="P3"
+      if (data.finalTimeSec !== undefined && data.finalPower) {
+        const xVal = data.finalTimeSec / 60;
+        const yVal = powerMap[data.finalPower] || 100; // default to P5 if missing
+        previewPowerPoints.push({ x: xVal, y: yVal });
+      }
+
+      // 6) Sort them by x so the stepped line is in order
+      previewPowerPoints.sort((a, b) => a.x - b.x);
+      previewChart.data.datasets[2].data = previewPowerPoints;
+  
+      // 7) Add milestone lines as annotation lines for Dry/First/Drop
+      function addPreviewMilestoneLine(id, sec, labelText) {
+        const xVal = sec/60;
+        previewChart.options.plugins.annotation.annotations[id] = {
+          type: "line",
+          xMin: xVal,
+          xMax: xVal,
+          borderColor: "gray",
+          borderWidth: 2,
+          borderDash: [5, 5],
+          label: {
+            display: false,
+            content: labelText,
+            position: "start",
+            xAdjust: -30,
+            backgroundColor: "rgba(0,0,0,0.7)",
+            color: "white",
+            font: { size: 10 },
+            yAdjust: -20
+          }
+        };
+      }
+      if (previewDryEndSec !== null) {
+        addPreviewMilestoneLine("previewDry", previewDryEndSec, "Dry End");
+      }
+      if (previewFirstCrackSec !== null) {
+        addPreviewMilestoneLine("previewFirst", previewFirstCrackSec, "First Crack");
+      }
+      if (previewDropSec !== null) {
+        addPreviewMilestoneLine("previewDrop", previewDropSec, "Drop");
+      }
+  
+      // 8) Add background shading for the phases if you like
+      //    We'll do a minimal approach similar to updatePhaseBackground
+      //    Note that we do not forcibly remove old boxes because we 
+      //    reset annotation objects above.
+      previewChart.options.plugins.annotation.annotations["previewDryPhase"] = {
+        type: "box",
+        xMin: 0,
+        xMax: previewDryEndSec ? (previewDryEndSec / 60) : null,
+        yMin: 0,
+        yMax: "100%",
+        backgroundColor: "rgba(255,224,128,0.3)",
+        borderWidth: 0
+      };
+      if (previewDryEndSec && previewFirstCrackSec) {
+        previewChart.options.plugins.annotation.annotations["previewBrowning"] = {
+          type: "box",
+          xMin: previewDryEndSec / 60,
+          xMax: previewFirstCrackSec / 60,
+          yMin: 0,
+          yMax: "100%",
+          backgroundColor: "rgba(255,176,96,0.3)",
+          borderWidth: 0
+        };
+      }
+      if (previewFirstCrackSec && previewDropSec) {
+        previewChart.options.plugins.annotation.annotations["previewDevelopment"] = {
+          type: "box",
+          xMin: previewFirstCrackSec / 60,
+          xMax: previewDropSec / 60,
+          yMin: 0,
+          yMax: "100%",
+          backgroundColor: "rgba(255,128,96,0.3)",
+          borderWidth: 0
+        };
+      }
+  
+      // 9) Finally update the previewChart
+      previewChart.update();
+  
+      // 10) For the mini pie, replicate the logic for dryness/browning/dev times
+      //     We'll just compute from the previewDryEndSec, previewFirstCrackSec, and previewDropSec
+      let dryingTime = 0, browningTime = 0, devTime = 0;
+      // if none set, entire roast is "drying"
+      const roastEndSec = previewDropSec || 0; // fallback
+      const nowSec = getMaxSecFromRows(data.tableRows); // or just previewDropSec
+  
+      const currentSec = nowSec || 0; // fallback if no drop
+  
+      if (!previewDryEndSec && !previewFirstCrackSec && !previewDropSec) {
+        dryingTime = currentSec;
+      } else if (previewDryEndSec && !previewFirstCrackSec && !previewDropSec) {
+        dryingTime = previewDryEndSec;
+        browningTime = Math.max(0, currentSec - previewDryEndSec);
+      } else if (previewDryEndSec && previewFirstCrackSec && !previewDropSec) {
+        dryingTime = previewDryEndSec;
+        browningTime = previewFirstCrackSec - previewDryEndSec;
+        devTime = Math.max(0, currentSec - previewFirstCrackSec);
+      } else if (previewDropSec) {
+        dryingTime = previewDryEndSec || 0;
+        browningTime = (previewFirstCrackSec || 0) - (previewDryEndSec || 0);
+        devTime = previewDropSec - (previewFirstCrackSec || 0);
+      }
+  
+      // Update the previewPie
+      previewPie.data.datasets[0].data = [
+        Math.max(dryingTime, 0),
+        Math.max(browningTime, 0),
+        Math.max(devTime, 0)
+      ];
+      previewPie.update();
+  
+      // 11) Fill in some text stats
+      document.getElementById("previewBean").innerText = data.beanType || "";
+      document.getElementById("previewStart").innerText = data.startWeight || "";
+      document.getElementById("previewDate").innerText = formatDateMMDDYY(data.dateValue || "");
+      document.getElementById("previewRoastTime").innerText =
+        data.finalTimeSec
+          ? formatTimeString(Math.floor(data.finalTimeSec))
+          : formatTimeString(getMaxSecFromRows(data.tableRows));
+  
+    } catch (err) {
+      console.error("previewRoast error:", err);
+      clearPreview(); // or show an error message
+    }
+  
+    //--- HELPER inline or from your script
+    function convertTimeStringToSeconds(str) {
+      // e.g. "2:30" => 150
+      const [m, s] = str.split(":").map(Number);
+      return (m||0)*60 + (s||0);
+    }
+    function formatTimeString(sec) {
+      const mm = Math.floor(sec/60);
+      const ss = sec%60;
+      return String(mm).padStart(2,"0")+":"+String(ss).padStart(2,"0");
+    }
+    function formatDateMMDDYY(yyyy_mm_dd) {
+      // e.g. "2025-01-12" => "01/12/25"
+      if (!yyyy_mm_dd) return "";
+      const parts = yyyy_mm_dd.split("-");
+      if (parts.length !== 3) return yyyy_mm_dd;
+      const yy = parts[0].slice(-2);
+      return `${parts[1]}/${parts[2]}/${yy}`;
+    }
+    function getMaxSecFromRows(rows) {
+      let max = 0;
+      if (!Array.isArray(rows)) return max;
+      rows.forEach(r=>{
+        const s = r.datasetTimeSec||0;
+        if(s>max) max=s;
+      });
+      return max;
+    }
+    function clearPreview() {
+      // optionally blank the preview text, reset charts, etc.
+      if (previewChart) {
+        previewChart.data.datasets.forEach(ds => ds.data = []);
+        previewChart.options.plugins.annotation.annotations = {};
+        previewChart.update();
+      }
+      if (previewPie) {
+        previewPie.data.datasets[0].data = [0,0,0];
+        previewPie.update();
+      }
+      document.getElementById("previewBean").innerText = "";
+      document.getElementById("previewStart").innerText = "";
+      document.getElementById("previewDate").innerText = "";
+      document.getElementById("previewRoastTime").innerText = "";
+    }
+  }  
 }
 
 function formatDateMMDDYY(yyyy_mm_dd) {

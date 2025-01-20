@@ -125,9 +125,19 @@ label {
     background-color: #fff;
     padding: 20px;
     border-radius: 8px;
-    width: 300px; /* or whatever width you prefer */
+    width: 900px; /* or whatever width you prefer */
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     position: relative;
+    max-height: 80vh;     /* limit vertical size */
+    margin-top: 20px;     /* some space from the top */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.left-panel, .right-panel {
+    display: flex;
+    flex-direction: column;
 }
   
 /* Buttons in popup */
@@ -158,7 +168,7 @@ label {
 /* For the entire popup content to be a flex container */
 #loadPopupContent {
     margin-top: 20px;
-    width: 700px;        /* or whatever width you prefer */
+    width: 1200px;        /* or whatever width you prefer */
     max-height: 80vh;    /* limit popup to 80% of viewport height */
     display: flex;       /* flex layout */
     flex-direction: column; 
@@ -169,6 +179,81 @@ label {
     display: flex;
     gap: 10px;
     margin-bottom: 10px;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.left-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.roast-count-span {
+    font-size: 0.9em;
+    color: #666;
+}
+
+/* The main 2-column area */
+.load-main {
+    display: flex;
+    flex: 1;              /* take up remaining space in the popup */
+    overflow: hidden;     /* so each panel can scroll if needed */
+    gap: 20px;
+}
+  
+/* Left panel for the roast list table */
+.load-list-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;    /* contain scroll within it */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+  
+/* Make the table scroll inside */
+.load-list-panel table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow-y: auto;
+    /* You can either do height: 100%; or let the container handle scrolling */
+}
+  
+.load-list-panel thead tr th,
+.load-list-panel tbody tr td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+}
+  
+/* Right panel for preview charts/stats */
+.load-preview-panel {
+    width: 500px; /* or flex: 0 0 300px if you prefer */
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: auto; /* if you want the right side to scroll if it overflows */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+#previewChart {
+    max-height: 225px;
+}
+  
+/* The bottom row of buttons */
+.load-buttons {
+    margin-top: 15px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+  
+/* (Optional) highlight selected row */
+.load-list-panel tbody tr:hover {
+    background-color: #f2f2f2;
+    cursor: pointer;
 }
   
 /* The scrollable container for the roast table */
@@ -190,6 +275,8 @@ label {
     font-weight: bold;
     color: green; /* or style to indicate status */
 }  
+
+
 
 .timer span {
     font-size: 4em; /* 4x bigger */
