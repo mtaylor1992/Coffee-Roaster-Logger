@@ -345,6 +345,29 @@ label {
     margin: 5px 0;
 }
 
+.notes-section {
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.notes-section label {
+    font-size: 14pt;
+}
+
+.user-notes-area {
+    width: 300px;
+}
+
+.user-notes-area textarea {
+    resize: none;
+    height: 75px;
+    overflow-y: auto;
+    background-color: #eeeeee;
+    border: none;
+    font-family: inherit;
+    font-size: inherit;
+}
+
 .right-section {
     display: flex;
     flex-direction: column;
@@ -355,6 +378,18 @@ label {
 .table-section {
     overflow-x: auto;
     max-height: 100%;
+    overflow-y: auto;    /* scroll vertically if content exceeds height */
+    position: relative;  /* needed for some sticky positioning contexts */
+}
+
+/* Make the "Roast Log" <h3> sticky. */
+.table-section > h3 {
+    position: sticky;
+    top: 0;
+    background: #eeeeee;  /* or white, to match background */
+    z-index: 10;          /* ensure it stays above the table header */
+    margin: 0;            /* reset if you want no gap */
+    padding: 8px 0;
 }
 
 #roastTable {
@@ -369,8 +404,11 @@ label {
 }
 
 #roastTable th {
+    position: sticky;
+    top: 2.31em; /* just below the pinned h3, adjust if the h3 has extra padding or margin */
     background-color: #375fbb;
     color: white;
+    z-index: 9; /* just below the h3’s z-index */
 }
 
 #roastTable tr:nth-child(even){background-color: #f2f2f2;}

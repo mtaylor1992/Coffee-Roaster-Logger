@@ -651,6 +651,7 @@ function addManualRow() {
   if (!foundNormalRow) {
     bCell.focus();
   }
+  refreshNotesSection();
 }
 
 function parseTimeToSec(timeStr) {
@@ -739,6 +740,7 @@ function removeRowAndData(row) {
   // Re-sort data sets & update chart
   sortAllDatasets();
   updatePieChart();
+  refreshNotesSection();
 }
 
 function containsExplicitPowerTime(str) {
@@ -938,6 +940,7 @@ function resetRoast(partial = false) {
   // Clear power points array
   powerPoints = [];
   updatePowerDataset();
+  refreshNotesSection();
 }
 
 function resetRoastAll() {
@@ -968,17 +971,14 @@ function changePowerLevel(level) {
   pushOrReplacePowerPoint(xVal, level);
   updatePowerDataset();
   sortAllDatasets();
+  refreshNotesSection();
 }
 
 function toggleDrumSpeed() {
   drumSpeed = drumSpeed === "Low" ? "High" : "Low";
   const timeStr = getCurrentTimeString();
-
-  if (manualMode) {
-    appendNoteToLastRow(timeStr, `Drum ${drumSpeed} at ${timeStr}`);
-  } else {
-    appendNoteToLastRow(timeStr, `Drum ${drumSpeed} ${timeStr}`);
-  }
+  appendNoteToLastRow(timeStr, `Drum ${drumSpeed} ${timeStr}`);
+  refreshNotesSection();
 }
 
 function milestoneEvent(name) {
@@ -1013,6 +1013,7 @@ function milestoneEvent(name) {
       clearInterval(timerInterval);
     }
     updatePieChart();
+    refreshNotesSection();
 
   } catch (error) {
     console.error(`Error processing milestone event "${name}":`, error);
@@ -1129,6 +1130,16 @@ function addDataToTable(timeSec, sensorB, sensorA, notes) {
   row.insertCell(1).innerText = sensorB;
   row.insertCell(2).innerText = sensorA;
   row.insertCell(3).innerText = notes;
+
+  // --- Auto-scroll after inserting ---
+  const container = document.querySelector(".table-section");
+  if (container) {
+    // Use smooth scrolling:
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: "smooth",
+    });
+  }
 }
 
 function addOrReplaceChartData(timeSec, sensorB, sensorA) {
@@ -1257,6 +1268,7 @@ function saveEdit(row, cellIndex, newVal) {
   }
 
   updatePieChart();
+  refreshNotesSection();
 
   if (manualMode) {
     // **Determine if the current row is the last row**
@@ -1275,6 +1287,37 @@ function saveEdit(row, cellIndex, newVal) {
         tbody.rows[tbody.rows.length - 1].cells[1].focus();
       }
     }
+  }
+}
+
+function refreshNotesSection() {
+  const autoNotesList = document.getElementById("autoNotesList");
+  if (!autoNotesList) return;
+
+  // Clear the old items
+  autoNotesList.innerHTML = "";
+
+  // Grab the roast table body
+  const tbody = document.querySelector("#roastTable tbody");
+  if (!tbody) return;
+
+  // Iterate over each row
+  for (let i = 0; i < tbody.rows.length; i++) {
+    const row = tbody.rows[i];
+
+    const timeStr = row.cells[0]?.innerText.trim() || "";
+    const noteStr = row.cells[3]?.innerText.trim() || "";
+
+    // Only show if there's actually a note
+    if (!noteStr) continue;
+
+    // Create a read-only list item, e.g., "2:30 - P4 2:30"
+    const li = document.createElement("li");
+    li.textContent = `${timeStr} – ${noteStr}`;
+    // (You could style or format it differently if you like.)
+
+    // Append to the UL
+    autoNotesList.appendChild(li);
   }
 }
 
@@ -1980,6 +2023,7 @@ async function doSaveRoast() {
   const endWeight = document.getElementById("endWeight").value.trim();
   const dateValue = document.getElementById("date").value.trim();
   const chargeTemp = document.getElementById("chargeTemp").value.trim();
+  const userNotes = document.getElementById("manualNotesArea").value.trim();
 
   // Gather table data
   const tableRows = [];
@@ -2032,8 +2076,9 @@ async function doSaveRoast() {
     dateValue,
     chargeTemp,
     tableRows,
-    finalTimeSec: finalSec,     // New
-    finalPower: finalPower,     // New
+    userNotes,
+    finalTimeSec: finalSec,
+    finalPower: finalPower,
     timestamp: firebase.firestore.FieldValue.serverTimestamp()
   };
 
@@ -2575,6 +2620,9 @@ async function handleLoadSelection() {
     }
     updatePieChart();
     updateChartTitle();
+
+    refreshNotesSection();
+    document.getElementById("manualNotesArea").value = data.userNotes || "";
 
     // Display that final time on the timer
     document.getElementById("timer").innerText = formatTimeString(dropTime);

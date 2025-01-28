@@ -94,6 +94,20 @@
                             <li>25% → --:--</li>
                         </ul>
                     </div>
+
+                    <!-- Notes Section -->
+                    <div class="notes-section">
+                        <label>Notes:</label>
+                        <!-- TOP PART: AUTO-FILLED from table (read-only) -->
+                        <ul id="autoNotesList" class="auto-notes-list">
+                            <!-- will be populated by refreshAutoNotesList() -->
+                        </ul>
+
+                        <!-- BOTTOM PART: USER-TYPED (not connected to the table) -->
+                        <div class="user-notes-area">
+                            <textarea id="manualNotesArea" rows="4" style="width:100%;"></textarea>
+                        </div>
+                    </div>
                 </div>
             </div>
 
