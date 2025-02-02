@@ -219,13 +219,13 @@ function initializePieChart() {
       plugins: {
         legend: { display: false }, // Removed the legend
         title: {
-          display: true, 
-          text: "Roast Phases", 
-          color: "black", 
+          display: true,
+          text: "Roast Phases",
+          color: "black",
           font: {
             size: fontSizePx,
             weight: "bold"
-          } 
+          }
         },
         datalabels: {
           // Updated formatter to show labels only for active slices
@@ -377,39 +377,39 @@ function setupEventListeners() {
       return;
     }
     handleLoadSelection(selectedRoastDocId);
-  });  
+  });
 
   document.getElementById("roastSearchInput").addEventListener("input", (e) => {
     const query = e.target.value.toLowerCase().trim();
-  
+
     const filtered = roastsArray.filter(r => {
       return r.beanType.toLowerCase().includes(query);
       // Or also check dateValue, docId, etc. for multi-field search
     });
-  
+
     // Re-render with the filtered list
     renderRoastListTable(filtered);
   });
-  
+
   document.getElementById("applySortBtn").addEventListener("click", () => {
     const field = document.getElementById("sortFieldSelect").value;   // "dateValue", "beanType", ...
     const direction = document.getElementById("sortDirectionSelect").value; // "asc" or "desc"
-  
+
     roastsArray.sort((a, b) => {
       let valA = a[field];
       let valB = b[field];
-  
+
       // If sorting startWeight as a number:
       if (field === "startWeight") {
         valA = parseFloat(valA) || 0;
         valB = parseFloat(valB) || 0;
       }
-  
+
       if (valA < valB) return direction === "asc" ? -1 : 1;
       if (valA > valB) return direction === "asc" ? 1 : -1;
       return 0;
     });
-  
+
     // Now re-render
     renderRoastListTable(roastsArray);
   });
@@ -420,7 +420,7 @@ function setupEventListeners() {
     cancelTempBtn.addEventListener("click", () => {
       // If user cancels, also treat it as missed input or handle differently
       // e.g. fill with previous temps or do nothing
-      handleMissedTempInput(); 
+      handleMissedTempInput();
     });
   }
 
@@ -437,7 +437,7 @@ function setupEventListeners() {
   if (bInput) {
     bInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        e.preventDefault(); 
+        e.preventDefault();
         // Move focus to sensor A
         aInput.focus();
       }
@@ -447,11 +447,17 @@ function setupEventListeners() {
   if (aInput) {
     aInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        e.preventDefault(); 
+        e.preventDefault();
         // Submit the modal
         handleTempSubmit();
       }
     });
+  }
+
+  // Delete button in load modal
+  const deleteBtn = document.getElementById("deleteRoastPopupBtn");
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", deleteSelectedRoast);
   }
 
   //Mini previews in load popup
@@ -916,6 +922,7 @@ function resetRoast(partial = false) {
   // Clear chart data
   temperatureChart.data.datasets.forEach((ds) => (ds.data = []));
   temperatureChart.options.plugins.annotation.annotations = {};
+  temperatureChart.options.plugins.title.text = "";
   temperatureChart.update();
 
   // Clear pie
@@ -940,7 +947,10 @@ function resetRoast(partial = false) {
   // Clear power points array
   powerPoints = [];
   updatePowerDataset();
-  refreshNotesSection();
+
+  //Clear notes section
+  document.getElementById("autoNotesList").innerHTML = "";
+  document.getElementById("manualNotesArea").value = "";
 }
 
 function resetRoastAll() {
@@ -1094,7 +1104,7 @@ function handleMissedTempInput(missedSec = null) {
   clearTimeout(tempModalTimeout);
   document.getElementById("tempModal").style.display = "none";
 
-  if (!missedSec) missedSec = currentPromptSec; 
+  if (!missedSec) missedSec = currentPromptSec;
   // Or handle if user canceled after some delay
 
   // 1) Get previous row’s B/A
@@ -1294,8 +1304,20 @@ function refreshNotesSection() {
   const autoNotesList = document.getElementById("autoNotesList");
   if (!autoNotesList) return;
 
-  // Clear the old items
-  autoNotesList.innerHTML = "";
+  // Find the boundary <li>
+  const boundaryLi = document.getElementById("recipeBoundary");
+  if (!boundaryLi) {
+    // No recipe, clear everything
+    autoNotesList.innerHTML = "";
+  } else {
+    // Remove everything *after* boundaryLi
+    let node = boundaryLi.nextSibling;
+    while (node) {
+      let toRemove = node;
+      node = node.nextSibling;
+      autoNotesList.removeChild(toRemove);
+    }
+  }
 
   // Grab the roast table body
   const tbody = document.querySelector("#roastTable tbody");
@@ -1545,15 +1567,15 @@ function updatePhaseBackground() {
   // DRY PHASE: 0 to Dry End
   // Only add if we have a dryEndTime
   //if (dryEndMin && dryEndMin > 0) {
-    annots["dryPhase"] = {
-      type: "box",
-      xMin: 0,
-      xMax: dryEndMin,
-      yMin: 0,
-      yMax: "100%", // or a large number, e.g. 9999
-      backgroundColor: "rgba(255, 224, 128, 0.5)", // #ffe080 w/ alpha
-      borderWidth: 0,
-    };
+  annots["dryPhase"] = {
+    type: "box",
+    xMin: 0,
+    xMax: dryEndMin,
+    yMin: 0,
+    yMax: "100%", // or a large number, e.g. 9999
+    backgroundColor: "rgba(255, 224, 128, 0.5)", // #ffe080 w/ alpha
+    borderWidth: 0,
+  };
   //}
 
   // BROWNING PHASE: Dry End to First Crack
@@ -1718,7 +1740,7 @@ function pushOrReplacePowerPoint(xVal, powerLevel) {
   // Find existing index
   const existingIndex = powerPoints.findIndex((p) => p.x === xVal);
   const yVal = powerMap[powerLevel];
-  
+
   if (existingIndex !== -1) {
     // Replace
     powerPoints[existingIndex].y = yVal;
@@ -1788,12 +1810,18 @@ function rebuildPowerPoints() {
   dryEndTime = null;
   firstCrackTime = null;
   dropTime = null;
-  temperatureChart.options.plugins.annotation.annotations = {};
+  // Clear all existing non-ghost recipe annotations
+  const annots = temperatureChart.options.plugins.annotation.annotations;
+  for (const key in annots) {
+    if (!key.startsWith("ghost_")) {
+      delete annots[key];
+    }
+  }
 
   // 3. Gather all row data into an array
   const tbody = document.querySelector("#roastTable tbody");
   if (!tbody) return;
-  
+
   let rowData = [];
   for (let i = 0; i < tbody.rows.length; i++) {
     const row = tbody.rows[i];
@@ -1825,8 +1853,13 @@ function rebuildPowerPoints() {
  * Rebuild Annotations based on current milestone notes in the table
  */
 function rebuildAnnotations() {
-  // Clear all existing annotations
-  temperatureChart.options.plugins.annotation.annotations = {};
+  // Clear all existing non-ghost recipe annotations
+  const annots = temperatureChart.options.plugins.annotation.annotations;
+  for (const key in annots) {
+    if (!key.startsWith("ghost_")) {
+      delete annots[key];
+    }
+  }
 
   const tbody = document.querySelector("#roastTable tbody");
   if (!tbody) return;
@@ -1975,7 +2008,7 @@ function showSavePopup() {
   // Pre-fill the roast name with: BeanType + StartWeight + date + time
   const bean = (document.getElementById("beanType")?.value || "").trim() || "UnknownBean";
   const startW = (document.getElementById("startWeight")?.value || "").trim() || "??g";
-  
+
   // The date field might be "yyyy-mm-dd", convert to "m/d/yy"
   let dateVal = (document.getElementById("date")?.value || "").trim() || "";
   let dateStr = "NoDate";
@@ -2084,7 +2117,7 @@ async function doSaveRoast() {
 
   try {
     // Instead of "01/12/25 16:35", change to "01-12-25 16:35"
-    const cleanedName = docId.replace(/\//g, "-"); 
+    const cleanedName = docId.replace(/\//g, "-");
     await db.collection("roasts").doc(cleanedName).set(roastData);
     statusEl.style.color = "green";
     statusEl.innerText = "Saved successfully!";
@@ -2116,7 +2149,7 @@ async function showLoadPopup() {
           startWeight: data.startWeight || "",
           dateValue: data.dateValue || "", // e.g. "2025-01-12"
           // If you store time in doc data or parse from doc.id:
-          roastTime: parseTimeFromDocId(doc.id), 
+          roastTime: parseTimeFromDocId(doc.id),
           // ^ optional helper if your docId includes "16:35"
         });
       });
@@ -2196,7 +2229,7 @@ function renderRoastListTable(roasts) {
       console.warn("previewChart or previewPie not initialized globally.");
       return;
     }
-  
+
     // 2) Fetch the Firestore doc
     try {
       const docRef = db.collection("roasts").doc(docId);
@@ -2206,7 +2239,7 @@ function renderRoastListTable(roasts) {
         return;
       }
       const data = docSnap.data() || {};
-  
+
       // 3) Reset the previewChart fully (clear old data, old annotations, etc.)
       //    We'll set up 3 datasets: Sensor B, Sensor A, Power Level
       previewChart.data.datasets = [
@@ -2309,7 +2342,7 @@ function renderRoastListTable(roasts) {
         }
       }
       previewChart.options.plugins.annotation.annotations = {}; // clear old annotations
-  
+
       // 4) We'll track sensor data, power points, milestone times, etc.
       let previewPowerPoints = [];
       let previewDryEndSec = null;
@@ -2327,7 +2360,7 @@ function renderRoastListTable(roasts) {
         const tSec = row.datasetTimeSec || 0;
         const bVal = parseFloat(row.sensorB) || 0;
         const aVal = parseFloat(row.sensorA) || 0;
-        
+
         // Add sensor B / A to dataset
         previewChart.data.datasets[0].data.push({ x: tSec / 60, y: bVal });
         previewChart.data.datasets[1].data.push({ x: tSec / 60, y: aVal });
@@ -2346,7 +2379,7 @@ function renderRoastListTable(roasts) {
             if (timeMatch) {
               noteSec = convertTimeStringToSeconds(timeMatch[0]);
             }
-            
+
             // Check for power
             const powerMatch = seg.match(/\bP[1-5]\b/i);
             if (powerMatch) {
@@ -2382,10 +2415,10 @@ function renderRoastListTable(roasts) {
       // 6) Sort them by x so the stepped line is in order
       previewPowerPoints.sort((a, b) => a.x - b.x);
       previewChart.data.datasets[2].data = previewPowerPoints;
-  
+
       // 7) Add milestone lines as annotation lines for Dry/First/Drop
       function addPreviewMilestoneLine(id, sec, labelText) {
-        const xVal = sec/60;
+        const xVal = sec / 60;
         previewChart.options.plugins.annotation.annotations[id] = {
           type: "line",
           xMin: xVal,
@@ -2414,7 +2447,7 @@ function renderRoastListTable(roasts) {
       if (previewDropSec !== null) {
         addPreviewMilestoneLine("previewDrop", previewDropSec, "Drop");
       }
-  
+
       // 8) Add background shading for the phases if you like
       //    We'll do a minimal approach similar to updatePhaseBackground
       //    Note that we do not forcibly remove old boxes because we 
@@ -2450,19 +2483,19 @@ function renderRoastListTable(roasts) {
           borderWidth: 0
         };
       }
-  
+
       // 9) Finally update the previewChart
       previewChart.update();
-  
+
       // 10) For the mini pie, replicate the logic for dryness/browning/dev times
       //     We'll just compute from the previewDryEndSec, previewFirstCrackSec, and previewDropSec
       let dryingTime = 0, browningTime = 0, devTime = 0;
       // if none set, entire roast is "drying"
       const roastEndSec = previewDropSec || 0; // fallback
       const nowSec = getMaxSecFromRows(data.tableRows); // or just previewDropSec
-  
+
       const currentSec = nowSec || 0; // fallback if no drop
-  
+
       if (!previewDryEndSec && !previewFirstCrackSec && !previewDropSec) {
         dryingTime = currentSec;
       } else if (previewDryEndSec && !previewFirstCrackSec && !previewDropSec) {
@@ -2477,7 +2510,7 @@ function renderRoastListTable(roasts) {
         browningTime = (previewFirstCrackSec || 0) - (previewDryEndSec || 0);
         devTime = previewDropSec - (previewFirstCrackSec || 0);
       }
-  
+
       // Update the previewPie
       previewPie.data.datasets[0].data = [
         Math.max(dryingTime, 0),
@@ -2485,7 +2518,7 @@ function renderRoastListTable(roasts) {
         Math.max(devTime, 0)
       ];
       previewPie.update();
-  
+
       // 11) Fill in some text stats
       document.getElementById("previewBean").innerText = data.beanType || "";
       document.getElementById("previewStart").innerText = data.startWeight || "";
@@ -2494,22 +2527,22 @@ function renderRoastListTable(roasts) {
         data.finalTimeSec
           ? formatTimeString(Math.floor(data.finalTimeSec))
           : formatTimeString(getMaxSecFromRows(data.tableRows));
-  
+
     } catch (err) {
       console.error("previewRoast error:", err);
       clearPreview(); // or show an error message
     }
-  
+
     //--- HELPER inline or from your script
     function convertTimeStringToSeconds(str) {
       // e.g. "2:30" => 150
       const [m, s] = str.split(":").map(Number);
-      return (m||0)*60 + (s||0);
+      return (m || 0) * 60 + (s || 0);
     }
     function formatTimeString(sec) {
-      const mm = Math.floor(sec/60);
-      const ss = sec%60;
-      return String(mm).padStart(2,"0")+":"+String(ss).padStart(2,"0");
+      const mm = Math.floor(sec / 60);
+      const ss = sec % 60;
+      return String(mm).padStart(2, "0") + ":" + String(ss).padStart(2, "0");
     }
     function formatDateMMDDYY(yyyy_mm_dd) {
       // e.g. "2025-01-12" => "01/12/25"
@@ -2522,9 +2555,9 @@ function renderRoastListTable(roasts) {
     function getMaxSecFromRows(rows) {
       let max = 0;
       if (!Array.isArray(rows)) return max;
-      rows.forEach(r=>{
-        const s = r.datasetTimeSec||0;
-        if(s>max) max=s;
+      rows.forEach(r => {
+        const s = r.datasetTimeSec || 0;
+        if (s > max) max = s;
       });
       return max;
     }
@@ -2536,7 +2569,7 @@ function renderRoastListTable(roasts) {
         previewChart.update();
       }
       if (previewPie) {
-        previewPie.data.datasets[0].data = [0,0,0];
+        previewPie.data.datasets[0].data = [0, 0, 0];
         previewPie.update();
       }
       document.getElementById("previewBean").innerText = "";
@@ -2544,7 +2577,7 @@ function renderRoastListTable(roasts) {
       document.getElementById("previewDate").innerText = "";
       document.getElementById("previewRoastTime").innerText = "";
     }
-  }  
+  }
 }
 
 function formatDateMMDDYY(yyyy_mm_dd) {
@@ -2558,11 +2591,19 @@ function formatDateMMDDYY(yyyy_mm_dd) {
 }
 
 function hideLoadPopup() {
+  // Uncheck the "Use as Recipe" checkbox every time the load button is clicked
+  document.getElementById("useAsRecipeCheckbox").checked = false;
   document.getElementById("loadPopup").style.display = "none";
 }
 
 async function handleLoadSelection() {
   try {
+    const useAsRecipe = document.getElementById("useAsRecipeCheckbox").checked;
+    if (!selectedRoastDocId) {
+      document.getElementById("loadStatus").innerText = "Please select a roast row first.";
+      return;
+    }
+
     const docRef = db.collection("roasts").doc(selectedRoastDocId);
     const docSnap = await docRef.get();
 
@@ -2571,64 +2612,475 @@ async function handleLoadSelection() {
       return;
     }
 
-    const data = docSnap.data();
     hideLoadPopup();
 
-    // Clear current UI
-    resetRoastAll();
-
-    // Populate fields
-    document.getElementById("beanType").value = data.beanType || "";
-    document.getElementById("startWeight").value = data.startWeight || "";
-    document.getElementById("endWeight").value = data.endWeight || "";
-    document.getElementById("date").value = data.dateValue || "";
-    document.getElementById("chargeTemp").value = data.chargeTemp || "";
-
-    // Re-create table rows
-    const tbody = document.querySelector("#roastTable tbody");
-    if (tbody) {
-      tbody.innerHTML = "";
-
-      (data.tableRows || []).forEach(rowObj => {
-        const newRow = tbody.insertRow(tbody.rows.length);
-        newRow.dataset.timeSec = rowObj.datasetTimeSec || 0;
-        newRow.dataset.oldNote = rowObj.notes || "";
-
-        // The table has 4 columns: time, B, A, notes
-        newRow.insertCell(0).innerText = rowObj.time;
-        newRow.insertCell(1).innerText = rowObj.sensorB;
-        newRow.insertCell(2).innerText = rowObj.sensorA;
-        newRow.insertCell(3).innerText = rowObj.notes;
-
-        // INSERT temperatures into chart
-      const timeSec = rowObj.datasetTimeSec || 0;
-      const bVal = parseFloat(rowObj.sensorB) || 0;
-      const aVal = parseFloat(rowObj.sensorA) || 0;
-      addOrReplaceChartData(timeSec, bVal, aVal);
-      });
+    if (useAsRecipe) {
+      // 1) Start a new roast, but overlay the selected doc as ghost data
+      loadAsRecipe(docSnap.data());
+    } else {
+      // 2) Normal "overwrite" load
+      doNormalLoad(docSnap.data());
     }
-
-    // Finally, call your existing rebuild logic
-    // This will parse notes, restore milestones, power, etc.
-    rebuildPowerPoints(); 
-    rebuildAnnotations();
-    // If the doc has a finalTimeSec and finalPower, add that point behind the scenes
-    if (data.finalTimeSec !== undefined && data.finalPower !== undefined) {
-      pushOrReplacePowerPoint(data.finalTimeSec / 60, data.finalPower);
-      updatePowerDataset();     // re-render power line
-      temperatureChart.update();
-    }
-    updatePieChart();
-    updateChartTitle();
-
-    refreshNotesSection();
-    document.getElementById("manualNotesArea").value = data.userNotes || "";
-
-    // Display that final time on the timer
-    document.getElementById("timer").innerText = formatTimeString(dropTime);
 
   } catch (err) {
     console.error("Load error:", err);
     document.getElementById("loadStatus").innerText = "Failed to load roast data.";
   }
+}
+
+async function deleteSelectedRoast() {
+  // Make sure a roast is selected
+  if (!selectedRoastDocId) {
+    alert("Please select a roast to delete.");
+    return;
+  }
+
+  // Confirm deletion with the user
+  if (!confirm("Are you sure you want to delete this roast? This cannot be undone.")) {
+    return;
+  }
+
+  try {
+    // Delete the roast document from Firestore
+    await db.collection("roasts").doc(selectedRoastDocId).delete();
+    alert("Roast deleted successfully.");
+
+    // Optionally, refresh your roast list
+    roastsArray = roastsArray.filter(roast => roast.docId !== selectedRoastDocId);
+    renderRoastListTable(roastsArray);
+
+    // Clear preview and selection if needed
+    clearPreview();
+    selectedRoastDocId = "";
+  } catch (error) {
+    console.error("Error deleting roast: ", error);
+    alert("Failed to delete roast. Please try again.");
+  }
+}
+
+function clearPreview() {
+  // Clear the preview chart's datasets and annotations
+  if (previewChart) {
+    previewChart.data.datasets.forEach((ds) => {
+      ds.data = [];
+    });
+    // Clear all annotations if they exist
+    if (previewChart.options.plugins.annotation) {
+      previewChart.options.plugins.annotation.annotations = {};
+    }
+    previewChart.update();
+  }
+
+  // Clear the preview pie chart data
+  if (previewPie) {
+    previewPie.data.datasets.forEach((ds) => {
+      ds.data = [0, 0, 0];
+    });
+    previewPie.update();
+  }
+
+  // Clear any preview text fields
+  const previewBean = document.getElementById("previewBean");
+  if (previewBean) previewBean.innerText = "";
+  const previewStart = document.getElementById("previewStart");
+  if (previewStart) previewStart.innerText = "";
+  const previewDate = document.getElementById("previewDate");
+  if (previewDate) previewDate.innerText = "";
+  const previewRoastTime = document.getElementById("previewRoastTime");
+  if (previewRoastTime) previewRoastTime.innerText = "";
+}
+
+function doNormalLoad(data) {
+  // Clear current UI
+  resetRoastAll();
+
+  // Populate fields
+  document.getElementById("beanType").value = data.beanType || "";
+  document.getElementById("startWeight").value = data.startWeight || "";
+  document.getElementById("endWeight").value = data.endWeight || "";
+  document.getElementById("date").value = data.dateValue || "";
+  document.getElementById("chargeTemp").value = data.chargeTemp || "";
+
+  // Re-create table rows
+  const tbody = document.querySelector("#roastTable tbody");
+  if (tbody) {
+    tbody.innerHTML = "";
+
+    (data.tableRows || []).forEach(rowObj => {
+      const newRow = tbody.insertRow(tbody.rows.length);
+      newRow.dataset.timeSec = rowObj.datasetTimeSec || 0;
+      newRow.dataset.oldNote = rowObj.notes || "";
+
+      // The table has 4 columns: time, B, A, notes
+      newRow.insertCell(0).innerText = rowObj.time;
+      newRow.insertCell(1).innerText = rowObj.sensorB;
+      newRow.insertCell(2).innerText = rowObj.sensorA;
+      newRow.insertCell(3).innerText = rowObj.notes;
+
+      // INSERT temperatures into chart
+      const timeSec = rowObj.datasetTimeSec || 0;
+      const bVal = parseFloat(rowObj.sensorB) || 0;
+      const aVal = parseFloat(rowObj.sensorA) || 0;
+      addOrReplaceChartData(timeSec, bVal, aVal);
+    });
+  }
+
+  // Finally, call your existing rebuild logic
+  // This will parse notes, restore milestones, power, etc.
+  rebuildPowerPoints();
+  rebuildAnnotations();
+  // If the doc has a finalTimeSec and finalPower, add that point behind the scenes
+  if (data.finalTimeSec !== undefined && data.finalPower !== undefined) {
+    pushOrReplacePowerPoint(data.finalTimeSec / 60, data.finalPower);
+    updatePowerDataset();     // re-render power line
+    temperatureChart.update();
+  }
+  updatePieChart();
+  updateChartTitle();
+
+  refreshNotesSection();
+  document.getElementById("manualNotesArea").value = data.userNotes || "";
+
+  // Display that final time on the timer
+  document.getElementById("timer").innerText = formatTimeString(dropTime);
+}
+
+function loadAsRecipe(roastData) {
+  // Clear out current roast UI:
+  resetRoastAll();            // Clears table, chart, etc.
+  manualMode = false;         // Ensure normal mode
+
+  // Overlay the ghost data onto the chart
+  overlayGhostData(roastData);
+
+  // Show the ghost’s notes in a read-only section
+  overlayGhostNotes(roastData);
+
+  // Build the side-by-side table
+  //createGhostComparisonTable(roastData);
+}
+
+function overlayGhostData(roastData) {
+  // Populate fields
+  document.getElementById("beanType").value = roastData.beanType || "";
+  document.getElementById("startWeight").value = roastData.startWeight || "";
+  
+  const bean = (document.getElementById("beanType")?.value || "").trim() || "No Bean";
+  const startW = (document.getElementById("startWeight")?.value || "").trim() || "??";
+  let dateVal = roastData.dateValue;
+
+  const parts = dateVal.split("-");
+  if (parts.length === 3) {
+    const yyyy = parts[0].slice(-2);
+    const mm = parts[1];
+    const dd = parts[2];
+    dateVal = `${mm}/${dd}/${yyyy}`;
+  }
+
+  temperatureChart.options.plugins.title.text = `${bean}, ${startW}g, ${dateVal}`;
+  temperatureChart.update();
+
+  // We'll add 3 new datasets: “Recipe B”, “Recipe A”, “Recipe Power”
+
+  const ghostB = {
+    label: "Recipe B",
+    data: [],
+    borderColor: "rgba(0,0,255,0.4)", // translucent blue
+    fill: false,
+    pointRadius: 3,
+    yAxisID: "yTemp",
+    borderDash: [4, 2] // dashed line for clarity
+  };
+
+  const ghostA = {
+    label: "Recipe A",
+    data: [],
+    borderColor: "rgba(0,128,0,0.4)", // translucent green
+    fill: false,
+    pointRadius: 3,
+    yAxisID: "yTemp",
+    borderDash: [4, 2]
+  };
+
+  const ghostPower = {
+    label: "Recipe Power",
+    data: [],
+    borderColor: "rgba(255,0,0,0.4)", // translucent red
+    fill: false,
+    stepped: true,
+    pointRadius: 0,
+    yAxisID: "yPower",
+    borderDash: [4, 2]
+  };
+
+  // 1) Add them to the chart’s datasets
+  temperatureChart.data.datasets.push(ghostB, ghostA, ghostPower);
+
+  // 2) Fill them from roastData.tableRows
+  ghostPower.data.push({ x: 0, y: powerMap["P5"] });
+
+  // Helper to parse a time string like "1:20" → total seconds
+  function timeStringToSec(str) {
+    const parts = str.split(":").map(Number);
+    if (parts.length !== 2) return 0;
+    return (parts[0] * 60) + (parts[1] || 0);
+  }
+
+  // For each row, add B/A data, parse power changes if found
+  (roastData.tableRows || []).forEach(row => {
+    const tSec = row.datasetTimeSec || 0;
+    const bVal = parseFloat(row.sensorB) || 0;
+    const aVal = parseFloat(row.sensorA) || 0;
+
+    ghostB.data.push({ x: tSec / 60, y: bVal });
+    ghostA.data.push({ x: tSec / 60, y: aVal });
+
+    // If the notes contain "P4 1:20" or "p3" or "P5 5:00", parse it:
+    const note = row.notes || "";
+    const powerRegex = /\b(P[1-5])\s+(\d{1,2}:\d{2})/gi;
+    // e.g. "P4 1:20" => group1="P4" group2="1:20"
+    let match;
+    while ((match = powerRegex.exec(note)) !== null) {
+      const powerLevel = match[1].toUpperCase();  // e.g. "P4"
+      const timeStr = match[2];                  // e.g. "1:20"
+      const sec = timeStringToSec(timeStr);
+      const xVal = sec / 60;
+      ghostPower.data.push({ x: xVal, y: powerMap[powerLevel] });
+    }
+
+    // Also check for lines like "P3" with no time => use tSec
+    // if you want to handle that scenario:
+    const shortPowerRegex = /\bP[1-5]\b(?!\s*\d)/i; 
+    const shortMatch = note.match(shortPowerRegex);
+    if (shortMatch) {
+      // e.g. "P2" with no explicit time, we treat it as row time
+      const level = shortMatch[0].toUpperCase();
+      ghostPower.data.push({ x: tSec / 60, y: powerMap[level] });
+    }
+  });
+
+  // If the doc has a finalTimeSec and finalPower, add it to ghostPower
+  if (roastData.finalTimeSec !== undefined && roastData.finalPower !== undefined) {
+    const xVal = roastData.finalTimeSec / 60;
+    const powerLevel = roastData.finalPower; // e.g. "P3"
+    const yVal = powerMap[powerLevel];       // convert "P3" -> 50, etc.
+
+    ghostPower.data.push({ x: xVal, y: yVal });
+  }
+
+  // Sort them by x:
+  ghostB.data.sort((a,b)=> a.x - b.x);
+  ghostA.data.sort((a,b)=> a.x - b.x);
+  ghostPower.data.sort((a,b)=> a.x - b.x);
+
+  // 3) Add ghost milestone lines
+  overlayGhostMilestones(roastData);
+
+  // 4) Finally, update the chart
+  temperatureChart.update();
+}
+
+function overlayGhostMilestones(roastData) {
+  // Ensure an annotations object exists on the chart
+  if (!temperatureChart.options.plugins.annotation.annotations) {
+    temperatureChart.options.plugins.annotation.annotations = {};
+  }
+
+  // Helper to parse "mm:ss" => total seconds
+  function parseTimeStringToSec(str) {
+    const parts = str.split(":").map(Number);
+    if (parts.length !== 2) return 0;
+    return (parts[0] || 0) * 60 + (parts[1] || 0);
+  }
+
+  /*
+    Regex Explanation:
+      (dry\s?end|first\s?crack|drop)
+        - captures either "dry end", "first crack", or "drop" (case-insensitive)
+      (?:\s+(\d{1,2}:\d{2}))?
+        - optionally matches a space and a time like "1:23"
+        - the second capturing group (match[2]) will be undefined if not found
+        - the entire group is optional (?), so a note with no time still matches.
+  */
+  const milestoneRegex = /(dry\s?end|first\s?crack|drop)(?:\s+(\d{1,2}:\d{2}))?/gi;
+
+  // Loop through each row in the loaded roast
+  (roastData.tableRows || []).forEach(row => {
+    const noteText = row.notes || "";
+    const tSec = row.datasetTimeSec || 0;
+
+    // We'll default to the row's time in seconds if no time is found in the note.
+    let match;
+    while ((match = milestoneRegex.exec(noteText)) !== null) {
+      const milestoneRaw = match[1].toLowerCase(); // "dry end", "first crack", or "drop"
+      const timeStr = match[2];                    // e.g. "4:30" or undefined if missing
+
+      // If no explicit time was found, use this row’s time
+      let sec = tSec;
+      if (timeStr) {
+        sec = parseTimeStringToSec(timeStr);
+      }
+
+      // Turn seconds -> x-value (in minutes)
+      const xVal = sec / 60;
+
+      // Create a label
+      let label;
+      if (milestoneRaw.includes("dry")) {
+        label = "Recipe Dry End";
+      } else if (milestoneRaw.includes("first")) {
+        label = "Recipe First Crack";
+      } else if (milestoneRaw.includes("drop")) {
+        label = "Recipe Drop";
+      }
+
+      // Unique ID so multiple lines don’t collide
+      const annId = `ghost_${milestoneRaw.replace(/\s+/g, "_")}_${sec}`;
+
+      // Add a dashed vertical line
+      temperatureChart.options.plugins.annotation.annotations[annId] = {
+        type: "line",
+        xMin: xVal,
+        xMax: xVal,
+        borderColor: "rgba(0,0,0,0.3)",
+        borderDash: [5, 5],
+        borderWidth: 2,
+        label: {
+          display: true,
+          content: label,
+          color: "#333",
+          backgroundColor: "rgba(255,255,255,0.5)",
+          position: "start",
+          yAdjust: -20
+        }
+      };
+    }
+  });
+
+  // Finally update the chart
+  temperatureChart.update();
+}
+
+function overlayGhostNotes(roastData) {
+  // 1) If you have a function that updates the "auto notes" from the table,
+  //    you can push the ghost's tableRows into a temporary structure,
+  //    then render them in read-only fashion.
+
+  // For example, let's say you have a special UL for recipe notes:
+  const autoNotesList = document.getElementById("autoNotesList");
+  if (!autoNotesList) return;
+
+  // Clear if old recipe notes exist
+  autoNotesList.innerHTML = "";
+
+  // We'll append a small header, then the ghost’s table notes
+  const headerLi = document.createElement("li");
+  headerLi.textContent = "=== RECIPE NOTES ===";
+  headerLi.style.fontWeight = "bold";
+  headerLi.style.listStyle = "none";
+  autoNotesList.appendChild(headerLi);
+
+  // Add recipe stats
+  const rLi = document.createElement("li");
+  rLi.textContent =
+    `${roastData.beanType || "??"} ${formatDateMMDDYY(roastData.dateValue) || "??"}`;
+  rLi.style.color = "#555";
+  autoNotesList.appendChild(rLi);
+
+  const wLi = document.createElement("li");
+  wLi.textContent =
+    `Start/End Weight: ${roastData.startWeight || "??"}/${roastData.endWeight || "??"} g, 
+    Charge: ${roastData.chargeTemp || "??"} °F`;
+  wLi.style.color = "#555";
+  autoNotesList.appendChild(wLi);
+
+  // Add each table note as a read-only <li>
+  (roastData.tableRows || []).forEach(row => {
+    if (!row.notes) return;
+    const li = document.createElement("li");
+    li.textContent = `${row.time} — ${row.notes}`;
+    li.style.color = "#555"; // grey-ish
+    autoNotesList.appendChild(li);
+  });
+
+  // 2) Also append the user's typed notes from that roast, if you stored them
+  if (roastData.userNotes) {
+    const userLi = document.createElement("li");
+    userLi.textContent = `User Notes: ${roastData.userNotes}`;
+    userLi.style.color = "#777";
+    userLi.style.fontStyle = "italic";
+    autoNotesList.appendChild(userLi);
+  }
+
+  // 3) Insert a boundary so you know where to start the new roast notes
+  const boundaryLi = document.createElement("li");
+  boundaryLi.id = "recipeBoundary";
+  boundaryLi.style.listStyleType = "none";
+  boundaryLi.style.borderBottom = "1px solid #000";
+  boundaryLi.style.margin = "4px 0";
+  autoNotesList.appendChild(boundaryLi);
+
+  // Now the user can see the loaded roast’s notes, but cannot edit them
+  // because they're just plain text in a read-only UL.
+}
+
+function createGhostComparisonTable(roastData) {
+  // Clear out any existing rows
+  const tbody = document.querySelector("#roastTable tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  // For each row in the recipe, create a side-by-side row
+  (roastData.tableRows || []).forEach(recipeRow => {
+    createGhostComparisonRow(recipeRow);
+  });
+}
+
+function createGhostComparisonRow(recipeRow) {
+  // recipeRow has { time, sensorB, sensorA, notes, datasetTimeSec }
+  const tableBody = document.querySelector("#roastTable tbody");
+  const tr = tableBody.insertRow();
+
+  // Time cell
+  const tdTime = tr.insertCell();
+  tdTime.textContent = recipeRow.time; // "1:00", etc.
+
+  // Sensor B cell
+  const tdB = tr.insertCell();
+  tdB.innerHTML = `
+    <span class="userB" contentEditable="true" style="display:inline-block; width:50%;"></span>
+    <span class="ghost-value" style="display:inline-block; width:50%; text-align:right; color:grey; 
+                                     pointer-events:none; user-select:none;">
+      ${recipeRow.sensorB}
+    </span>
+  `;
+
+  // SENSOR A cell
+  const tdA = tr.insertCell();
+  tdA.innerHTML = `
+    <span class="userA" contentEditable="true" style="display:inline-block; width:50%;"></span>
+    <span class="ghost-value" style="display:inline-block; width:50%; text-align:right; color:grey; 
+                                     pointer-events:none; user-select:none;">
+      ${recipeRow.sensorA}
+    </span>
+  `;
+
+  // Then attach event listeners to the userB / userA spans:
+  const userBSpan = tdB.querySelector(".userB");
+  userBSpan.addEventListener("blur", () => {
+    const val = parseFloat(userBSpan.innerText);
+    if (!isNaN(val)) {
+      // do something with new B value, e.g. addOrReplaceChartData(...)
+    }
+  });
+
+  const userASpan = tdA.querySelector(".userA");
+  userASpan.addEventListener("blur", () => {
+    const val = parseFloat(userASpan.innerText);
+    if (!isNaN(val)) {
+      // do something with new A value
+    }
+  });
+
+  // This row is now a "ghost comparison" row.
 }
