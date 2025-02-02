@@ -2987,10 +2987,12 @@ function overlayGhostNotes(roastData) {
   rLi.style.color = "#555";
   autoNotesList.appendChild(rLi);
 
+  // 3) Compute and add phase percentages (e.g., "50/30/20%")
+  const phasePct = computePhasePercentages(roastData);
   const wLi = document.createElement("li");
   wLi.textContent =
     `Start/End Weight: ${roastData.startWeight || "??"}/${roastData.endWeight || "??"} g, 
-    Charge: ${roastData.chargeTemp || "??"} °F`;
+    Charge: ${roastData.chargeTemp || "??"} °F, ${phasePct}`;
   wLi.style.color = "#555";
   autoNotesList.appendChild(wLi);
 
@@ -3022,6 +3024,73 @@ function overlayGhostNotes(roastData) {
 
   // Now the user can see the loaded roast’s notes, but cannot edit them
   // because they're just plain text in a read-only UL.
+}
+
+/**
+ * Computes phase percentages for drying, browning, and development.
+ * It scans the tableRows of the loaded roast data for milestone notes.
+ * If a milestone is missing, it falls back on the row's time.
+ *
+ * @param {object} roastData - The data object loaded from Firestore.
+ * @returns {string|null} - A string in the format "50/30/20%" or null if not enough info.
+ */
+function computePhasePercentages(roastData) {
+  let dryEndSec = 0,
+      firstCrackSec = 0,
+      dropSec = 0;
+
+  // Loop through each table row in the roast data
+  (roastData.tableRows || []).forEach(row => {
+    if (row.notes) {
+      const lower = row.notes.toLowerCase();
+      // Use the row's time (assumed to be in "MM:SS" format) as a fallback
+      const rowSec = row.datasetTimeSec ? parseInt(row.datasetTimeSec, 10) : convertTimeStringToSeconds(row.time);
+      if (lower.includes("dry end") && dryEndSec === 0) {
+        dryEndSec = rowSec;
+      }
+      if (lower.includes("first crack") && firstCrackSec === 0) {
+        firstCrackSec = rowSec;
+      }
+      if (lower.includes("drop") && dropSec === 0) {
+        dropSec = rowSec;
+      }
+    }
+  });
+
+  // If dropSec wasn't set from a milestone note, use the maximum datasetTimeSec from the rows
+  if (dropSec === 0) {
+    (roastData.tableRows || []).forEach(row => {
+      const t = row.datasetTimeSec ? parseInt(row.datasetTimeSec, 10) : convertTimeStringToSeconds(row.time);
+      if (t > dropSec) dropSec = t;
+    });
+  }
+
+  // We need at least a nonzero total time to compute percentages
+  const total = dropSec;
+  if (total === 0 || dryEndSec === 0 || firstCrackSec === 0) {
+    return null;
+  }
+
+  // Compute phase times
+  const dryingTime = dryEndSec;
+  const browningTime = firstCrackSec - dryEndSec;
+  const developmentTime = dropSec - firstCrackSec;
+  // Compute percentages (rounding to whole numbers)
+  const dryingPct = Math.round((dryingTime / total) * 100);
+  const browningPct = Math.round((browningTime / total) * 100);
+  const developmentPct = Math.round((developmentTime / total) * 100);
+
+  return `${dryingPct}/${browningPct}/${developmentPct}%`;
+}
+
+/**
+ * Helper to convert a "MM:SS" string into seconds.
+ */
+function convertTimeStringToSeconds(timeStr) {
+  if (typeof timeStr !== "string") return 0;
+  const parts = timeStr.split(":").map(Number);
+  if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return 0;
+  return parts[0] * 60 + parts[1];
 }
 
 function createGhostComparisonTable(roastData) {
