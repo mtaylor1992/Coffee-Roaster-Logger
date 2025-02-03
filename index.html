@@ -18,6 +18,7 @@
     
     <!-- Firebase CDN -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <!-- Firebase Configuration -->
@@ -29,6 +30,13 @@
     <div class="container">
         <!-- Input Row -->
         <div class="input-row">
+            <!-- Hamburger menu icon -->
+            <div id="hamburger" class="hamburger-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+
             <label for="date">Date:</label>
             <input type="date" id="date">
 
@@ -246,4 +254,27 @@
         </div>
     </div>
 </body>
+
+<!-- Sidebar (hidden by default) -->
+<div id="sidebar" class="sidebar">
+    <div class="sidebar-content">
+      <h3>Account</h3>
+      
+      <!-- Display logged in user information -->
+      <div id="userInfo">
+        <p id="loggedInUser">Not logged in</p>
+        <button id="logoutBtn" style="display: none;">Logout</button>
+      </div>
+      
+      <!-- Login / Signup / Change Password Form -->
+      <div id="loginForm">
+        <input type="email" id="loginEmail" placeholder="Email">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <a href="#" id="forgotPasswordLink">Forgot Password?</a>
+        <button id="loginBtn">Login</button>
+        <button id="signupBtn">Sign Up</button>
+        <button id="changePasswordBtn">Change Password</button>
+      </div>
+    </div>
+</div>
 </html>

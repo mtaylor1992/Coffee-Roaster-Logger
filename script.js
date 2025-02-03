@@ -345,12 +345,26 @@ function setupEventListeners() {
 
   const saveBtn = document.getElementById("saveRoastBtn");
   if (saveBtn) {
-    saveBtn.addEventListener("click", showSavePopup);
-  }
+    saveBtn.addEventListener("click", () => {
+      if (!firebase.auth().currentUser) {
+        alert("You must create an account or log in before saving a roast.");
+        return;
+      }
+      // If the user is logged in, open the save popup.
+      showSavePopup();
+    });
+  }   
 
   const loadBtn = document.getElementById("loadRoastBtn");
   if (loadBtn) {
-    loadBtn.addEventListener("click", showLoadPopup);
+    loadBtn.addEventListener("click", () => {
+      if (!firebase.auth().currentUser) {
+        alert("You must create an account or log in before loading a roast.");
+        return;
+      }
+      // If the user is logged in, open the load popup.
+      showLoadPopup();
+    });
   }
 
   const cancelSaveBtn = document.getElementById("cancelSaveBtn");
@@ -525,6 +539,110 @@ function setupEventListeners() {
       });
     }
   }
+
+  // Toggle sidebar when hamburger is clicked
+  document.getElementById("hamburger").addEventListener("click", function() {
+    const sidebar = document.getElementById("sidebar");
+    sidebar.classList.toggle("open");
+  });
+
+  // Firebase Auth event listeners and functions
+  // (Assumes Firebase is already initialized via your firebase-config.js)
+
+  const auth = firebase.auth(); // using Firebase Auth
+
+  // Update the UI when the auth state changes
+  auth.onAuthStateChanged((user) => {
+    const loggedInUserEl = document.getElementById("loggedInUser");
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (user) {
+      loggedInUserEl.textContent = `Logged in as: ${user.email}`;
+      logoutBtn.style.display = "block";
+    } else {
+      loggedInUserEl.textContent = "Not logged in";
+      logoutBtn.style.display = "none";
+    }
+  });
+
+  // Login button functionality
+  document.getElementById("loginBtn").addEventListener("click", () => {
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    if (!email || !password) {
+      alert("Please enter both email and password.");
+      return;
+    }
+    auth.signInWithEmailAndPassword(email, password)
+      .catch((error) => {
+        alert(`Login failed: ${error.message}`);
+      });
+  });
+
+  // Sign up button functionality
+  document.getElementById("signupBtn").addEventListener("click", () => {
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    if (!email || !password) {
+      alert("Please enter both email and password.");
+      return;
+    }
+    auth.createUserWithEmailAndPassword(email, password)
+      .then(() => {
+        alert("Account created and logged in successfully.");
+        document.getElementById("sidebar").classList.remove("open");
+      })
+      .catch((error) => {
+        alert(`Sign up failed: ${error.message}`);
+      });
+  });
+
+  // Logout button functionality
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    auth.signOut()
+      .catch((error) => {
+        alert(`Logout failed: ${error.message}`);
+      });
+  });
+
+  // Change Password functionality (simple example)
+  document.getElementById("changePasswordBtn").addEventListener("click", () => {
+    const newPassword = prompt("Enter your new password:");
+    if (!newPassword) {
+      alert("Password not changed.");
+      return;
+    }
+    const user = auth.currentUser;
+    if (user) {
+      user.updatePassword(newPassword)
+        .then(() => {
+          alert("Password updated successfully.");
+        })
+        .catch((error) => {
+          alert(`Failed to update password: ${error.message}`);
+        });
+    } else {
+      alert("No user is currently logged in.");
+    }
+  });
+
+  // When the sidebar is open, clicking anywhere outside of it will close it.
+  document.addEventListener("click", function(event) {
+    const sidebar = document.getElementById("sidebar");
+    const hamburger = document.getElementById("hamburger");
+
+    // Check if the sidebar is open.
+    if (sidebar.classList.contains("open")) {
+      // If the click is outside the sidebar and outside the hamburger icon...
+      if (!sidebar.contains(event.target) && !hamburger.contains(event.target)) {
+        sidebar.classList.remove("open");
+      }
+    }
+  });
+
+  document.getElementById("forgotPasswordLink").addEventListener("click", function(e) {
+    e.preventDefault();
+    sendPasswordReset();
+  });
 
   initializePreviewCharts();
 }
@@ -1118,11 +1236,6 @@ function handleMissedTempInput(missedSec = null) {
 
   // 2) Insert a new row (like normal) with those values
   logData(missedSec, lastB, lastA, "Temperature input missed");
-
-  // Or if you'd prefer not to add a new row but update an existing one, do it accordingly.
-  // But typically, you'd treat it as a new time mark with "missed" note.
-
-  console.log("Missed input at time:", missedSec);
 }
 
 /** ========== TABLE & CHART UPDATE ========== **/
@@ -1203,11 +1316,9 @@ function handleTableClick(e) {
     const newVal = input.value.trim();
 
     if (newVal === oldValue) {
-      console.log("newval = oldval, no change detected");
       // No changes detected
       // Check if we should still create a new row in manual mode
       if (manualMode && e.target.cellIndex === 3) {
-        console.log("Is manual mode and is a notes cell");
         // Is this the last row in the table?
         const tbody = document.querySelector("#roastTable tbody");
         const allRows = tbody.querySelectorAll("tr");
@@ -1215,7 +1326,6 @@ function handleTableClick(e) {
 
         if (isLastRow) {
           // Force the creation of a new row
-          console.log("Is last row, adding manual row");
           addManualRow();
           tbody.rows[tbody.rows.length - 1].cells[1].focus();
         }
@@ -2003,6 +2113,22 @@ function parseMilestones(note) {
 
 
 //ADDED SAVE/LOAD FEATURES
+// Function to send a password reset email
+function sendPasswordReset() {
+  const email = prompt("Please enter your email address for password reset:");
+  if (!email) {
+    alert("Email is required for password reset.");
+    return;
+  }
+  
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(() => {
+      alert("Password reset email sent. Please check your inbox.");
+    })
+    .catch((error) => {
+      alert("Error: " + error.message);
+    });
+}
 
 function showSavePopup() {
   // Pre-fill the roast name with: BeanType + StartWeight + date + time
@@ -2057,6 +2183,7 @@ async function doSaveRoast() {
   const dateValue = document.getElementById("date").value.trim();
   const chargeTemp = document.getElementById("chargeTemp").value.trim();
   const userNotes = document.getElementById("manualNotesArea").value.trim();
+  const user = firebase.auth().currentUser;
 
   // Gather table data
   const tableRows = [];
@@ -2077,7 +2204,6 @@ async function doSaveRoast() {
 
         // If neither B nor A is a valid temperature, skip this row
         if (!bValRaw && !aValRaw) {
-          console.log("Skipping last blank row in manual mode");
           continue; // Do not push this row
         }
       }
@@ -2112,6 +2238,7 @@ async function doSaveRoast() {
     userNotes,
     finalTimeSec: finalSec,
     finalPower: finalPower,
+    uid: user.uid,
     timestamp: firebase.firestore.FieldValue.serverTimestamp()
   };
 
@@ -2129,35 +2256,36 @@ async function doSaveRoast() {
 }
 
 async function showLoadPopup() {
+  // Clear any previous status message and show the load popup
   document.getElementById("loadStatus").innerText = "";
   document.getElementById("loadPopup").style.display = "flex";
 
-  roastsArray = []; // clear the global array
-  selectedRoastDocId = ""; // nothing selected yet
+  // Clear the global roast array and reset the selected document ID
+  roastsArray = [];
+  selectedRoastDocId = "";
 
   try {
-    const snapshot = await db.collection("roasts").orderBy("timestamp", "desc").get();
-    if (!snapshot.empty) {
+    const currentUser = firebase.auth().currentUser;
+    if (currentUser) {
+      // Use await to get the query snapshot
+      const snapshot = await db.collection("roasts")
+        .where("uid", "==", currentUser.uid)
+        .orderBy("timestamp", "desc")
+        .get();
       snapshot.forEach(doc => {
         const data = doc.data();
-        // e.g. beanType, startWeight, dateValue, maybe finalTimeSec, etc.
-        // The doc ID might be "Colombia 454g 01-12-25 16:35", or something else
-
         roastsArray.push({
           docId: doc.id,
           beanType: data.beanType || "",
           startWeight: data.startWeight || "",
-          dateValue: data.dateValue || "", // e.g. "2025-01-12"
-          // If you store time in doc data or parse from doc.id:
-          roastTime: parseTimeFromDocId(doc.id),
-          // ^ optional helper if your docId includes "16:35"
+          dateValue: data.dateValue || "", // e.g., "2025-01-12"
+          roastTime: parseTimeFromDocId(doc.id), // helper function you already have
         });
       });
+
+      // Render the table after the dummy roasts have been pushed into roastsArray
+      renderRoastListTable(roastsArray);
     }
-
-    // Render the table
-    renderRoastListTable(roastsArray);
-
   } catch (err) {
     console.error("Error loading roasts:", err);
     document.getElementById("loadStatus").innerText = "Failed to load roasts.";
@@ -2643,7 +2771,6 @@ async function deleteSelectedRoast() {
   try {
     // Delete the roast document from Firestore
     await db.collection("roasts").doc(selectedRoastDocId).delete();
-    alert("Roast deleted successfully.");
 
     // Optionally, refresh your roast list
     roastsArray = roastsArray.filter(roast => roast.docId !== selectedRoastDocId);
