@@ -253,7 +253,7 @@ function initializePieChart() {
 }
 
 /** ========== EVENT LISTENERS ========== **/
-function setupEventListeners() {
+async function setupEventListeners() {
   const startBtn = document.getElementById("startRoast");
   if (startBtn) {
     startBtn.addEventListener("click", () => {
@@ -283,7 +283,7 @@ function setupEventListeners() {
       debounce(() => {
         if (!manualMode) changePowerLevel(btn.getAttribute("data-level"));
       }, 300)
-    ); // 300ms delay
+    );
   });
 
   // Toggle drum speed in normal mode with debounced event handler
@@ -345,15 +345,17 @@ function setupEventListeners() {
 
   const saveBtn = document.getElementById("saveRoastBtn");
   if (saveBtn) {
-    saveBtn.addEventListener("click", () => {
+    saveBtn.addEventListener("click", async () => {
       if (!firebase.auth().currentUser) {
         alert("You must create an account or log in before saving a roast.");
         return;
       }
-      // If the user is logged in, open the save popup.
+
+      const endWeightOK = await checkEndWeight();
+      if (!endWeightOK) return;
       showSavePopup();
     });
-  }   
+  }
 
   const loadBtn = document.getElementById("loadRoastBtn");
   if (loadBtn) {
@@ -362,7 +364,6 @@ function setupEventListeners() {
         alert("You must create an account or log in before loading a roast.");
         return;
       }
-      // If the user is logged in, open the load popup.
       showLoadPopup();
     });
   }
@@ -398,22 +399,19 @@ function setupEventListeners() {
 
     const filtered = roastsArray.filter(r => {
       return r.beanType.toLowerCase().includes(query);
-      // Or also check dateValue, docId, etc. for multi-field search
     });
 
-    // Re-render with the filtered list
     renderRoastListTable(filtered);
   });
 
   document.getElementById("applySortBtn").addEventListener("click", () => {
-    const field = document.getElementById("sortFieldSelect").value;   // "dateValue", "beanType", ...
-    const direction = document.getElementById("sortDirectionSelect").value; // "asc" or "desc"
+    const field = document.getElementById("sortFieldSelect").value;
+    const direction = document.getElementById("sortDirectionSelect").value;
 
     roastsArray.sort((a, b) => {
       let valA = a[field];
       let valB = b[field];
 
-      // If sorting startWeight as a number:
       if (field === "startWeight") {
         valA = parseFloat(valA) || 0;
         valB = parseFloat(valB) || 0;
@@ -424,7 +422,6 @@ function setupEventListeners() {
       return 0;
     });
 
-    // Now re-render
     renderRoastListTable(roastsArray);
   });
 
@@ -432,8 +429,6 @@ function setupEventListeners() {
   const cancelTempBtn = document.getElementById("cancelTempBtn");
   if (cancelTempBtn) {
     cancelTempBtn.addEventListener("click", () => {
-      // If user cancels, also treat it as missed input or handle differently
-      // e.g. fill with previous temps or do nothing
       handleMissedTempInput();
     });
   }
@@ -452,7 +447,6 @@ function setupEventListeners() {
     bInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        // Move focus to sensor A
         aInput.focus();
       }
     });
@@ -462,7 +456,6 @@ function setupEventListeners() {
     aInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        // Submit the modal
         handleTempSubmit();
       }
     });
@@ -474,7 +467,7 @@ function setupEventListeners() {
     deleteBtn.addEventListener("click", deleteSelectedRoast);
   }
 
-  //Mini previews in load popup
+  // Mini previews in load popup
   function initializePreviewCharts() {
     const lineCanvas = document.getElementById("previewChart");
     if (lineCanvas) {
@@ -487,12 +480,12 @@ function setupEventListeners() {
           ]
         },
         options: {
-          responsive: false, // so it doesn't shrink unpredictably
+          responsive: false,
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
             x: { type: "linear", position: "bottom", min: 0 },
-            y: { min: 0 } // or any min you prefer
+            y: { min: 0 }
           }
         }
       });
@@ -513,22 +506,17 @@ function setupEventListeners() {
           borderColor: ["#ffe080", "#ffb060", "#ff8060"],
           maintainAspectRatio: false,
           plugins: {
-            legend: { display: false }, // Removed the legend
+            legend: { display: false },
             datalabels: {
-              // Updated formatter to show labels only for active slices
               formatter: (value, ctx) => {
-                const total = ctx.chart.data.datasets[ctx.datasetIndex].data.reduce(
-                  (a, b) => a + b,
-                  0
-                );
-                if (total === 0 || value === 0) return ""; // Hide label if slice is inactive
+                const total = ctx.chart.data.datasets[ctx.datasetIndex].data.reduce((a, b) => a + b, 0);
+                if (total === 0 || value === 0) return "";
                 let pct = ((value / total) * 100).toFixed(1) + "%";
                 const label = ctx.chart.data.labels[ctx.dataIndex] || "";
                 const timeStr = formatTime(value * 1000);
-                // Return multi-line string without HTML tags
                 return `${label}\n${timeStr}\n${pct}`;
               },
-              font: { size: 12, weight: "bold" }, // Set font weight to bold
+              font: { size: 12, weight: "bold" },
               color: "black",
               align: "center",
               anchor: "center"
@@ -540,31 +528,65 @@ function setupEventListeners() {
     }
   }
 
-  // Toggle sidebar when hamburger is clicked
-  document.getElementById("hamburger").addEventListener("click", function() {
-    const sidebar = document.getElementById("sidebar");
-    sidebar.classList.toggle("open");
+  // ----- Hamburger Toggle (for Header and Sidebar) -----
+  // Assuming your HTML has:
+  //  - A header hamburger with id "headerHamburger"
+  //  - A sidebar hamburger with id "sidebarHamburger"
+  //  - The sidebar container has id "sidebar"
+  const headerHamburger = document.getElementById("headerHamburger");
+  const sidebarHamburger = document.getElementById("sidebarHamburger");
+  const sidebar = document.getElementById("sidebar");
+
+  // When header hamburger is clicked, open sidebar, swap icons.
+  headerHamburger.addEventListener("click", function(e) {
+    sidebar.classList.add("open");
+    headerHamburger.style.visibility = "hidden";
+    sidebarHamburger.style.visibility = "visible";
+    e.stopPropagation();
   });
 
-  // Firebase Auth event listeners and functions
-  // (Assumes Firebase is already initialized via your firebase-config.js)
+  // When sidebar hamburger is clicked, close sidebar, swap icons.
+  sidebarHamburger.addEventListener("click", function(e) {
+    sidebar.classList.remove("open");
+    sidebarHamburger.style.visibility = "hidden";
+    headerHamburger.style.visibility = "visible";
+    e.stopPropagation();
+  });
 
-  const auth = firebase.auth(); // using Firebase Auth
-
-  // Update the UI when the auth state changes
-  auth.onAuthStateChanged((user) => {
-    const loggedInUserEl = document.getElementById("loggedInUser");
-    const logoutBtn = document.getElementById("logoutBtn");
-    if (user) {
-      loggedInUserEl.textContent = `Logged in as: ${user.email}`;
-      logoutBtn.style.display = "block";
-    } else {
-      loggedInUserEl.textContent = "Not logged in";
-      logoutBtn.style.display = "none";
+  // Close sidebar when clicking outside.
+  document.addEventListener("click", function(event) {
+    if (sidebar.classList.contains("open") &&
+        !sidebar.contains(event.target) &&
+        !sidebarHamburger.contains(event.target)) {
+      sidebar.classList.remove("open");
+      sidebarHamburger.style.visibility = "hidden";
+      headerHamburger.style.visibility = "visible";
     }
   });
 
-  // Login button functionality
+  // Firebase Auth event listeners and functions
+  const auth = firebase.auth();
+
+  auth.onAuthStateChanged((user) => {
+    const loggedInUserEl = document.getElementById("loggedInUser");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const profileSettingsBtn = document.getElementById("profileSettingsBtn");
+    const loginForm = document.getElementById("loginForm");
+    const userInfo = document.getElementById("userInfo");
+
+    if (user) {
+      loggedInUserEl.textContent = `Logged in as: ${user.email}`;
+      logoutBtn.style.display = "inline-block";
+      profileSettingsBtn.style.display = "inline-block";
+      loginForm.style.display = "none";
+      userInfo.style.display = "block";
+    } else {
+      loginForm.style.display = "block";
+      userInfo.style.display = "none";
+    }
+  });
+
+  // Login functionality
   document.getElementById("loginBtn").addEventListener("click", () => {
     const email = document.getElementById("loginEmail").value.trim();
     const password = document.getElementById("loginPassword").value;
@@ -578,25 +600,199 @@ function setupEventListeners() {
       });
   });
 
-  // Sign up button functionality
+  document.getElementById("profileSettingsBtn").addEventListener("click", () => {
+    // Open the profile modal
+    document.getElementById("profileModal").style.display = "flex";
+    
+    // Optionally, load current profile data into the modal fields
+    const user = firebase.auth().currentUser;
+    if (user) {
+      db.collection("users")
+        .doc(user.uid)
+        .get()
+        .then((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            document.getElementById("profileName").value = data.name || "";
+            document.getElementById("profileDisplayName").value = data.displayName || "";
+            document.getElementById("profileAbout").value = data.about || "";
+            document.getElementById("profileEmail").value = user.email; // still from auth
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching user data:", error);
+        });
+    }
+  });
+
+  // Sign up functionality
   document.getElementById("signupBtn").addEventListener("click", () => {
-    const email = document.getElementById("loginEmail").value.trim();
-    const password = document.getElementById("loginPassword").value;
+    // Set the modal title for account creation.
+    document.getElementById("modalTitle").innerText = "Create Account";
+    
+    // Clear fields.
+    document.getElementById("profileName").value = "";
+    document.getElementById("profileDisplayName").value = "";
+    document.getElementById("profileAbout").value = "";
+    document.getElementById("profileEmail").value = "";
+    document.getElementById("profilePassword").value = "";
+    
+    // In signup mode, enable the email field and show the password input
+    document.getElementById("profileEmail").disabled = false;
+    document.getElementById("passwordSignupContainer").style.display = "block";
+    document.getElementById("passwordResetContainer").style.display = "none";
+    
+    // Show the Create Account button and hide the Update Profile button.
+    document.getElementById("createAccountBtn").style.display = "inline-block";
+    document.getElementById("updateProfileBtn").style.display = "none";
+    
+    // Open the modal.
+    document.getElementById("profileModal").style.display = "flex";
+  });
+
+  document.getElementById("createAccountBtn").addEventListener("click", () => {
+    // Gather values.
+    const name = document.getElementById("profileName").value.trim();
+    const displayName = document.getElementById("profileDisplayName").value.trim();
+    const about = document.getElementById("profileAbout").value.trim();
+    const email = document.getElementById("profileEmail").value.trim();
+    const password = document.getElementById("profilePassword").value;
+    
     if (!email || !password) {
-      alert("Please enter both email and password.");
+      alert("Email and password are required for account creation.");
       return;
     }
-    auth.createUserWithEmailAndPassword(email, password)
+    
+    // Check if the display name is available.
+    isDisplayNameAvailable(displayName)
+    .then(available => {
+      if (!available) {
+        alert("This display name is already taken. Please choose another one.");
+        return;
+      }
+      
+      // Proceed with account creation if available.
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(userCredential => {
+          const user = userCredential.user;
+          return db.collection("users").doc(user.uid).set({
+            name: name,
+            displayName: displayName,
+            about: about,
+            email: email
+          });
+        })
+        .then(() => {
+          alert("Account created successfully!");
+          document.getElementById("profileModal").style.display = "none";
+        })
+        .catch(error => {
+          alert("Error creating account: " + error.message);
+        });
+    });
+  });
+
+  document.getElementById("profileSettingsBtn").addEventListener("click", () => {
+    // Set the modal title.
+    document.getElementById("modalTitle").innerText = "Profile Settings";
+    
+    const user = firebase.auth().currentUser;
+    if (user) {
+      // Fetch the custom user data from Firestore.
+      db.collection("users").doc(user.uid).get().then((doc) => {
+        if (doc.exists) {
+          const data = doc.data();
+          document.getElementById("profileName").value = data.name || "";
+          document.getElementById("profileDisplayName").value = data.displayName || "";
+          document.getElementById("profileAbout").value = data.about || "";
+          // Set alert checkboxes; default to true if not defined.
+          document.getElementById("alertBeanStartAlert").checked = data.alertMissingBeanStart !== false;
+          document.getElementById("alertChargeTempAlert").checked = data.alertMissingChargeTemp !== false;
+          document.getElementById("alertEndWeightAlert").checked = data.alertMissingEndWeight !== false;
+        }
+        // Use the auth email for display.
+        document.getElementById("profileEmail").value = user.email;
+        // In profile update mode, disable email editing and hide the password input field
+        document.getElementById("profileEmail").disabled = true;
+        document.getElementById("passwordSignupContainer").style.display = "none";
+        document.getElementById("passwordResetContainer").style.display = "block";
+
+        
+        // Show the Update Profile button and hide the Create Account button.
+        document.getElementById("updateProfileBtn").style.display = "inline-block";
+        document.getElementById("createAccountBtn").style.display = "none";
+        
+        // Open the modal.
+        document.getElementById("profileModal").style.display = "flex";
+      }).catch((error) => {
+        console.error("Error fetching user data:", error);
+      });
+    }
+  });
+
+  document.getElementById("updateProfileBtn").addEventListener("click", () => {
+    const user = firebase.auth().currentUser;
+    if (!user) {
+      alert("No user is currently logged in.");
+      return;
+    }
+    
+    const name = document.getElementById("profileName").value.trim();
+    const displayName = document.getElementById("profileDisplayName").value.trim();
+    const about = document.getElementById("profileAbout").value.trim();
+    
+    // Get the alert settings values from the checkboxes
+    const alertBeanStart = document.getElementById("alertBeanStartAlert").checked;
+    const alertChargeTemp = document.getElementById("alertChargeTempAlert").checked;
+    const alertEndWeight = document.getElementById("alertEndWeightAlert").checked;
+
+    // Check if the new display name is available, passing the current user's UID.
+    isDisplayNameAvailable(displayName, user.uid)
+    .then(available => {
+      if (!available) {
+        alert("This display name is already taken. Please choose another one.");
+        return;
+      }
+      
+      // Proceed with updating the profile if available.
+      db.collection("users").doc(user.uid).update({
+        name: name,
+        displayName: displayName,
+        about: about,
+        alertMissingBeanStart: alertBeanStart,
+        alertMissingChargeTemp: alertChargeTemp,
+        alertMissingEndWeight: alertEndWeight
+      })
       .then(() => {
-        alert("Account created and logged in successfully.");
-        document.getElementById("sidebar").classList.remove("open");
+        alert("Profile updated successfully!");
+        document.getElementById("profileModal").style.display = "none";
+      })
+      .catch(error => {
+        alert("Error updating profile: " + error.message);
+      });
+    });
+  });
+
+  document.getElementById("cancelProfileBtn").addEventListener("click", () => {
+    document.getElementById("profileModal").style.display = "none";
+  });
+
+  document.getElementById("resetPasswordBtn").addEventListener("click", () => {
+    const email = document.getElementById("profileEmail").value.trim();
+    if (!email) {
+      alert("Please enter your email address to reset your password.");
+      return;
+    }
+    firebase.auth().sendPasswordResetEmail(email)
+      .then(() => {
+        alert("Password reset email sent. Please check your inbox.");
       })
       .catch((error) => {
-        alert(`Sign up failed: ${error.message}`);
+        alert("Error sending password reset email: " + error.message);
       });
   });
 
-  // Logout button functionality
+  // Logout functionality
   document.getElementById("logoutBtn").addEventListener("click", () => {
     auth.signOut()
       .catch((error) => {
@@ -604,47 +800,59 @@ function setupEventListeners() {
       });
   });
 
-  // Change Password functionality (simple example)
-  document.getElementById("changePasswordBtn").addEventListener("click", () => {
-    const newPassword = prompt("Enter your new password:");
-    if (!newPassword) {
-      alert("Password not changed.");
-      return;
-    }
-    const user = auth.currentUser;
-    if (user) {
-      user.updatePassword(newPassword)
-        .then(() => {
-          alert("Password updated successfully.");
-        })
-        .catch((error) => {
-          alert(`Failed to update password: ${error.message}`);
-        });
-    } else {
-      alert("No user is currently logged in.");
-    }
-  });
-
-  // When the sidebar is open, clicking anywhere outside of it will close it.
-  document.addEventListener("click", function(event) {
-    const sidebar = document.getElementById("sidebar");
-    const hamburger = document.getElementById("hamburger");
-
-    // Check if the sidebar is open.
-    if (sidebar.classList.contains("open")) {
-      // If the click is outside the sidebar and outside the hamburger icon...
-      if (!sidebar.contains(event.target) && !hamburger.contains(event.target)) {
-        sidebar.classList.remove("open");
-      }
-    }
-  });
-
   document.getElementById("forgotPasswordLink").addEventListener("click", function(e) {
     e.preventDefault();
     sendPasswordReset();
   });
 
+  const aboutText = `
+    <p>
+      The Coffee Roaster Logger is an innovative application designed to help both amateur and professional roasters achieve consistency in their craft. By tracking key parameters such as bean type, start and end weights, charge temperatures, and roasting milestones, you can fine-tune your roasting process and reproduce excellent results time after time.
+    </p>
+    <p>
+      With detailed logging, data visualization, and the ability to save and load roast sessions, this tool empowers you to experiment with different techniques and identify the best approach for your unique beans and equipment. The insights you gain help optimize your roast profile and improve overall flavor consistency.
+    </p>
+    <p>
+      Special thanks to <strong>ChatGPT</strong> for its invaluable assistance in coding and design, making it possible to develop a user-friendly and robust logging system that supports your coffee roasting journey.
+    </p>
+  `;
+  document.getElementById("aboutBtn").addEventListener("click", () => {
+    // Insert the about text into the container.
+    document.getElementById("aboutContent").innerHTML = aboutText;
+    // Show the modal.
+    document.getElementById("aboutModal").style.display = "flex";
+  });
+
+  document.getElementById("closeAboutBtn").addEventListener("click", () => {
+    document.getElementById("aboutModal").style.display = "none";
+  });
+
   initializePreviewCharts();
+}
+
+function isDisplayNameAvailable(displayName, currentUid = null) {
+  return db.collection("users")
+    .where("displayName", "==", displayName)
+    .get()
+    .then(snapshot => {
+      // If no document has this displayName, it's available.
+      if (snapshot.empty) return true;
+
+      // If updating, allow it if the only document returned is the current user's.
+      if (currentUid) {
+        if (snapshot.size === 1 && snapshot.docs[0].id === currentUid) {
+          return true;
+        }
+        return false;
+      }
+      
+      // For account creation, if any document exists, it's taken.
+      return false;
+    })
+    .catch(error => {
+      console.error("Error checking displayName availability:", error);
+      return false;
+    });
 }
 
 /** If user typed charge temp but never pressed Enter, do it automatically **/
@@ -657,15 +865,81 @@ function autoAddChargeIfTyped() {
   }
 }
 
-// ========== CHECK BEAN / WEIGHT ==========
-function checkBeanAndWeight() {
+// ========== ALERT CHECKS BEFORE STARTING AND SAVING ROASTS ==========
+async function checkBeanAndWeight() {
   const beanVal = (document.getElementById("beanType")?.value || "").trim();
   const startW = (document.getElementById("startWeight")?.value || "").trim();
-  if (!beanVal || !startW) {
-    //alert("Please enter Bean Type and Start Weight first.");
-    //return false;
+  
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    // If not logged in, assume no alerts are needed.
+    return true;
   }
-  return true;
+  
+  try {
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const settings = userDoc.data() || {};
+    // Default to true if the setting isn’t explicitly false.
+    const alertBeanStart = settings.alertMissingBeanStart !== false;
+    
+    if ((!beanVal || !startW) && alertBeanStart) {
+      alert("Please enter Bean Type and Start Weight first.");
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error fetching user settings:", error);
+    // In case of error, you might default to alerting.
+    return false;
+  }
+}
+
+async function checkChargeTemp() {
+  const chargeTemp = (document.getElementById("chargeTemp")?.value || "").trim();
+  
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    return true;
+  }
+  
+  try {
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const settings = userDoc.data() || {};
+    const alertChargeTemp = settings.alertMissingChargeTemp !== false;
+    
+    if (!chargeTemp && alertChargeTemp) {
+      alert("Please enter Charge Temperature.");
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error fetching user settings:", error);
+    return false;
+  }
+}
+
+async function checkEndWeight() {
+  const endWeight = (document.getElementById("endWeight")?.value || "").trim();
+  
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    return true;
+  }
+  
+  try {
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const settings = userDoc.data() || {};
+    const alertEndWeight = settings.alertMissingEndWeight !== false;
+    
+    if (!endWeight && alertEndWeight) {
+      alert("Please enter End Weight before saving the roast.");
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error fetching user settings:", error);
+    return false;
+  }
 }
 
 // ========== CHARGE ROW ==========
@@ -984,13 +1258,19 @@ function forwardPatchPowerChange(row) {
   updatePowerDataset();
 }
 
-function startRoast() {
+async function startRoast() {
   if (manualMode) return;
-  if (!checkBeanAndWeight()) return;
+
+  const beanAndWeightOK = await checkBeanAndWeight();
+  if (!beanAndWeightOK) return;
+  
+  const chargeTempOK = await checkChargeTemp();
+  if (!chargeTempOK) return;
 
   if (running) {
     return;
   }
+
   running = true;
   startTime = Date.now() - elapsedTime;
   timerInterval = setInterval(updateTimer, 200);
@@ -2313,10 +2593,12 @@ function renderRoastListTable(roasts) {
     const { docId, beanType, startWeight, dateValue, roastTime } = roast;
 
     const tr = document.createElement("tr");
+    // Set the docId as a data attribute on the row.
+    tr.dataset.docid = docId;
 
     // 1) Date
     const dateTd = document.createElement("td");
-    dateTd.innerText = formatDateMMDDYY(roast.dateValue);
+    dateTd.innerText = formatDateMMDDYY(dateValue);
     tr.appendChild(dateTd);
 
     // 2) Time
@@ -2349,6 +2631,13 @@ function renderRoastListTable(roasts) {
 
     tbody.appendChild(tr);
   });
+
+  // Automatically select the first row, if it exists
+  if (tbody.rows.length > 0) {
+    tbody.rows[0].classList.add("selected-row");
+    selectedRoastDocId = tbody.rows[0].dataset.docid;
+    previewRoast(selectedRoastDocId);
+  }
 
   async function previewRoast(docId) {
     // 1) Safety checks
@@ -3218,65 +3507,4 @@ function convertTimeStringToSeconds(timeStr) {
   const parts = timeStr.split(":").map(Number);
   if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return 0;
   return parts[0] * 60 + parts[1];
-}
-
-function createGhostComparisonTable(roastData) {
-  // Clear out any existing rows
-  const tbody = document.querySelector("#roastTable tbody");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  // For each row in the recipe, create a side-by-side row
-  (roastData.tableRows || []).forEach(recipeRow => {
-    createGhostComparisonRow(recipeRow);
-  });
-}
-
-function createGhostComparisonRow(recipeRow) {
-  // recipeRow has { time, sensorB, sensorA, notes, datasetTimeSec }
-  const tableBody = document.querySelector("#roastTable tbody");
-  const tr = tableBody.insertRow();
-
-  // Time cell
-  const tdTime = tr.insertCell();
-  tdTime.textContent = recipeRow.time; // "1:00", etc.
-
-  // Sensor B cell
-  const tdB = tr.insertCell();
-  tdB.innerHTML = `
-    <span class="userB" contentEditable="true" style="display:inline-block; width:50%;"></span>
-    <span class="ghost-value" style="display:inline-block; width:50%; text-align:right; color:grey; 
-                                     pointer-events:none; user-select:none;">
-      ${recipeRow.sensorB}
-    </span>
-  `;
-
-  // SENSOR A cell
-  const tdA = tr.insertCell();
-  tdA.innerHTML = `
-    <span class="userA" contentEditable="true" style="display:inline-block; width:50%;"></span>
-    <span class="ghost-value" style="display:inline-block; width:50%; text-align:right; color:grey; 
-                                     pointer-events:none; user-select:none;">
-      ${recipeRow.sensorA}
-    </span>
-  `;
-
-  // Then attach event listeners to the userB / userA spans:
-  const userBSpan = tdB.querySelector(".userB");
-  userBSpan.addEventListener("blur", () => {
-    const val = parseFloat(userBSpan.innerText);
-    if (!isNaN(val)) {
-      // do something with new B value, e.g. addOrReplaceChartData(...)
-    }
-  });
-
-  const userASpan = tdA.querySelector(".userA");
-  userASpan.addEventListener("blur", () => {
-    const val = parseFloat(userASpan.innerText);
-    if (!isNaN(val)) {
-      // do something with new A value
-    }
-  });
-
-  // This row is now a "ghost comparison" row.
 }
